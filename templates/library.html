@@ -1,0 +1,546 @@
+{% extends "base.html" %}
+{% block title %}Library - EUREKA{% endblock %}
+{% block page_title %}Digital Library{% endblock %}
+{% block content %}
+<div class="library-dashboard">
+
+    <!-- ── Page Header ── -->
+    <div class="page-header-section library-header">
+        <div class="header-content">
+            <div>
+                <h1>📚 Digital Library</h1>
+                <p>{% if user_role in ('admin', 'superadmin', 'teacher') %}Upload soft copies of books and attach audio narrations for each title{% else %}Browse the book collection, download soft copies, and listen to audio narrations{% endif %}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Stats ── -->
+    <div class="library-stats">
+        <div class="stat-tile">
+            <span class="stat-label">Total Books</span>
+            <strong>{{ books|length }}</strong>
+        </div>
+        <div class="stat-tile">
+            <span class="stat-label">With Soft Copy</span>
+            <strong>{{ books|selectattr('file_path')|list|length }}</strong>
+        </div>
+        <div class="stat-tile">
+            <span class="stat-label">With Audio</span>
+            <strong>{{ books|selectattr('audio_path')|list|length }}</strong>
+        </div>
+    </div>
+
+    {% if user_role in ('admin', 'superadmin', 'teacher') %}
+    <!-- ── Add Book Form (admin and teacher) ── -->
+    <div class="card">
+        <div class="card-header">
+            <div>
+                <h2 class="card-title">Add New Book</h2>
+                <p class="card-subtitle">Register a book entry first, then upload its soft copy and audio</p>
+            </div>
+        </div>
+        <form method="post" action="{{ url_for('add_book') }}" class="library-form">
+            <div class="form-grid">
+                <div class="form-field">
+                    <label for="item_name">Book Title *</label>
+                    <input id="item_name" name="item_name" list="title-list" type="text" required placeholder="e.g. The Great Gatsby" />
+                    <datalist id="title-list">
+                        {% for title_row in existing_titles %}
+                        <option value="{{ title_row.title }}"></option>
+                        {% endfor %}
+                    </datalist>
+                </div>
+                <div class="form-field">
+                    <label for="supplier">Author *</label>
+                    <input id="supplier" name="supplier" type="text" required placeholder="e.g. F. Scott Fitzgerald" />
+                </div>
+                <div class="form-field">
+                    <label for="item_code">ISBN / Code</label>
+                    <input id="item_code" name="item_code" list="isbn-list" type="text" placeholder="978-0-316-92946-6" />
+                    <datalist id="isbn-list">
+                        {% for isbn_row in existing_isbns %}
+                        <option value="{{ isbn_row.isbn }}"></option>
+                        {% endfor %}
+                    </datalist>
+                </div>
+                <div class="form-field">
+                    <label for="category">Category</label>
+                    <select id="category" name="category">
+                        <option value="">Select category</option>
+                        <option value="Fiction">Fiction</option>
+                        <option value="Non-Fiction">Non-Fiction</option>
+                        <option value="Science">Science</option>
+                        <option value="Mathematics">Mathematics</option>
+                        <option value="History">History</option>
+                        <option value="Geography">Geography</option>
+                        <option value="English">English</option>
+                        <option value="Religious Studies">Religious Studies</option>
+                        <option value="Art & Design">Art & Design</option>
+                        <option value="ICT">ICT</option>
+                        <option value="Physical Education">Physical Education</option>
+                        <option value="Music">Music</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div class="form-field">
+                    <label for="quantity">Copies *</label>
+                    <input id="quantity" name="quantity" type="number" min="1" value="1" required />
+                </div>
+                <div class="form-field">
+                    <label for="stock_status">Status</label>
+                    <select id="stock_status" name="stock_status">
+                        <option value="available">Available</option>
+                        <option value="low">Low Stock</option>
+                        <option value="out">Out of Stock</option>
+                    </select>
+                </div>
+                <div class="form-field form-field-wide">
+                    <label for="description">Description</label>
+                    <textarea id="description" name="description" rows="2" placeholder="Brief synopsis or notes about this book…"></textarea>
+                </div>
+            </div>
+            <button type="submit" class="primary-btn">+ Add Book</button>
+         </form>
+         {% if user_role in ('admin', 'superadmin') %}
+         <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--neutral-200);">
+             <a href="{{ url_for('bulk_upload_books') }}" class="secondary-btn">📁 Bulk Upload Books (CSV)</a>
+         </div>
+         {% endif %}
+     </div>
+     {% endif %}
+
+    <!-- ── Book Cards Grid ── -->
+    <div class="card">
+        <div class="card-header">
+            <div>
+                <h2 class="card-title">Library Collection</h2>
+                <p class="card-subtitle">Upload soft copies and audio for each book</p>
+            </div>
+            <form method="get" action="{{ url_for('library') }}" class="inventory-filter">
+                <input type="text" name="q" value="{{ search_query }}" placeholder="Search books…" />
+                <select name="category">
+                    <option value="">All categories</option>
+                    {% for category in categories %}
+                    <option value="{{ category.category }}" {% if category_filter == category.category %}selected{% endif %}>{{ category.category }}</option>
+                    {% endfor %}
+                </select>
+                <button type="submit" class="secondary-btn">Filter</button>
+            </form>
+        </div>
+
+        {% if books %}
+        <div class="books-grid">
+            {% for book in books %}
+            {% set status = book.stock_status or 'available' %}
+            <div class="book-card" id="book-{{ book.id }}">
+
+                <!-- Cover -->
+                <div class="book-cover-wrap">
+                    {% if book.cover_image %}
+                    <img src="{{ url_for('serve_cover', book_id=book.id) }}" alt="{{ book.title }} cover" class="book-cover-img" />
+                    {% else %}
+                    <div class="book-cover-placeholder">
+                        <span class="cover-icon">📖</span>
+                    </div>
+                    {% endif %}
+                    <span class="stock-badge stock-{{ status }}">
+                        {% if status == 'available' %}Available
+                        {% elif status == 'low' %}Low Stock
+                        {% elif status == 'out' %}Out of Stock
+                        {% else %}Unavailable{% endif %}
+                    </span>
+                </div>
+
+                <!-- Info -->
+                <div class="book-info">
+                    <h3 class="book-title">{{ book.title }}</h3>
+                    <p class="book-author">by {{ book.author }}</p>
+                    {% if book.isbn %}
+                    <p class="book-isbn"><code>{{ book.isbn }}</code></p>
+                    {% endif %}
+                    {% if book.category %}
+                    <span class="category-badge">{{ book.category }}</span>
+                    {% endif %}
+                    {% if book.description %}
+                    <p class="book-desc">{{ book.description }}</p>
+                    {% endif %}
+                    <p class="book-qty">📦 {{ book.quantity }} copy{{ 'ies' if book.quantity != 1 else '' }} in stock</p>
+                </div>
+                
+                {% if user_role in ('admin', 'superadmin') %}
+                <div class="book-section">
+                    <h4 class="section-label">Actions</h4>
+                    <form method="post" action="{{ url_for('delete_book', book_id=book.id) }}" class="inline-delete-form" onsubmit="return confirm('Remove this book from the library? This cannot be undone.');">
+                        <button type="submit" class="action-btn delete-btn">🗑 Remove</button>
+                    </form>
+                </div>
+                {% endif %}
+
+                <!-- Soft Copy -->
+                <div class="book-section">
+                    <h4 class="section-label">💾 Soft Copy</h4>
+                    {% if book.file_path %}
+                    <div class="file-ready">
+                        <span class="file-badge">✅ File uploaded</span>
+                        <a href="{{ url_for('download_book', book_id=book.id) }}" class="action-btn download-btn" target="_blank">
+                            ⬇ Download
+                        </a>
+                    </div>
+                    {% else %}
+                    {% if user_role in ('admin', 'superadmin') %}
+                    <form method="post" action="{{ url_for('upload_book_file') }}" enctype="multipart/form-data" class="upload-form">
+                        <input type="hidden" name="book_id" value="{{ book.id }}" />
+                        <label class="upload-label">
+                            <span class="upload-icon">📎</span>
+                            <span>Upload PDF / EPUB / DOCX / TXT</span>
+                            <input type="file" name="book_file" accept=".pdf,.epub,.mobi,.doc,.docx,.txt" class="upload-input" required />
+                        </label>
+                        <button type="submit" class="primary-btn small-btn">Upload File</button>
+                    </form>
+                    {% else %}
+                    <p class="text-muted" style="font-size:.8rem;">No soft copy uploaded yet.</p>
+                    {% endif %}
+                    {% endif %}
+                </div>
+
+                <!-- Audio -->
+                <div class="book-section">
+                    <h4 class="section-label">🔊 Audio Narration</h4>
+                    {% if book.audio_path %}
+                    <div class="audio-ready">
+                        <span class="file-badge">✅ Audio uploaded</span>
+                        <audio controls class="audio-player" preload="none">
+                            <source src="{{ url_for('serve_audio', book_id=book.id) }}" type="audio/mpeg" />
+                            Your browser does not support the audio element.
+                        </audio>
+                        {% if user_role in ('admin', 'superadmin') %}
+                        <form method="post" action="{{ url_for('upload_audio', book_id=book.id) }}" enctype="multipart/form-data" class="upload-form">
+                            <label class="upload-label">
+                                <span class="upload-icon">🎙</span>
+                                <span>Replace audio (MP3 / WAV / OGG)</span>
+                                <input type="file" name="audio_file" accept=".mp3,.wav,.ogg,.m4a,.aac" class="upload-input" />
+                            </label>
+                            <button type="submit" class="primary-btn small-btn">Replace Audio</button>
+                        </form>
+                        {% endif %}
+                    </div>
+                    {% else %}
+                    {% if user_role in ('admin', 'superadmin') %}
+                    <form method="post" action="{{ url_for('upload_audio', book_id=book.id) }}" enctype="multipart/form-data" class="upload-form">
+                        <label class="upload-label">
+                            <span class="upload-icon">🎙</span>
+                            <span>Upload MP3 / WAV / OGG / M4A</span>
+                            <input type="file" name="audio_file" accept=".mp3,.wav,.ogg,.m4a,.aac" class="upload-input" required />
+                        </label>
+                        <button type="submit" class="primary-btn small-btn">Upload Audio</button>
+                    </form>
+                    {% else %}
+                    <p class="text-muted" style="font-size:.8rem;">No audio uploaded yet.</p>
+                    {% endif %}
+                    {% endif %}
+                </div>
+
+                <!-- Cover Image -->
+                <div class="book-section">
+                    <h4 class="section-label">🖼 Cover Image</h4>
+                    {% if book.cover_image %}
+                    <div class="cover-uploaded">
+                        <img src="{{ url_for('serve_cover', book_id=book.id) }}" alt="Cover" class="cover-thumb" />
+                        {% if user_role in ('admin', 'superadmin') %}
+                        <form method="post" action="{{ url_for('upload_cover', book_id=book.id) }}" enctype="multipart/form-data" class="upload-form">
+                            <label class="upload-label">
+                                <span>Replace cover (PNG / JPG / WEBP)</span>
+                                <input type="file" name="cover_file" accept=".png,.jpg,.jpeg,.gif,.webp" class="upload-input" />
+                            </label>
+                            <button type="submit" class="secondary-btn small-btn">Replace Cover</button>
+                        </form>
+                        {% endif %}
+                    </div>
+                    {% else %}
+                    {% if user_role in ('admin', 'superadmin') %}
+                    <form method="post" action="{{ url_for('upload_cover', book_id=book.id) }}" enctype="multipart/form-data" class="upload-form">
+                        <label class="upload-label">
+                            <span class="upload-icon">🖼</span>
+                            <span>Upload cover image (PNG / JPG / WEBP)</span>
+                            <input type="file" name="cover_file" accept=".png,.jpg,.jpeg,.gif,.webp" class="upload-input" />
+                        </label>
+                        <button type="submit" class="secondary-btn small-btn">Upload Cover</button>
+                    </form>
+                    {% else %}
+                    <p class="text-muted" style="font-size:.8rem;">No cover image uploaded yet.</p>
+                    {% endif %}
+                    {% endif %}
+                </div>
+
+            </div><!-- /.book-card -->
+            {% endfor %}
+        </div><!-- /.books-grid -->
+        {% else %}
+        <div class="empty-state">
+            <span class="empty-icon">📚</span>
+            <p>No books in the library yet. Add your first book above!</p>
+        </div>
+        {% endif %}
+    </div>
+
+</div><!-- /.library-dashboard -->
+
+
+<style>
+/* ── Layout ── */
+.library-dashboard { max-width: 1400px; margin: 0 auto; }
+
+.library-header {
+    background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%);
+}
+.library-header h1 { color: white; font-size: 2rem; font-weight: 800; margin: 0 0 .4rem 0; }
+.library-header p  { color: rgba(255,255,255,.88); margin: 0; }
+
+.library-stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+    margin: 1.5rem 0;
+}
+.stat-tile {
+    background: white;
+    border: 1px solid var(--neutral-200);
+    border-radius: var(--radius);
+    padding: 1rem;
+    box-shadow: var(--shadow);
+}
+.stat-label { display: block; color: var(--neutral-500); font-size: .78rem; font-weight: 700; text-transform: uppercase; }
+.stat-tile strong { display: block; color: var(--neutral-900); font-size: 1.75rem; margin-top: .25rem; }
+
+/* ── Form ── */
+.library-form .form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+.form-field-wide { grid-column: 1 / -1; }
+.form-field { display: flex; flex-direction: column; gap: .4rem; }
+.form-field label { color: var(--neutral-700); font-size: .85rem; font-weight: 700; }
+.form-field input,
+.form-field select,
+.form-field textarea,
+.inventory-filter input,
+.inventory-filter select {
+    background: white;
+    border: 1px solid var(--neutral-300);
+    border-radius: var(--radius);
+    color: var(--neutral-800);
+    font-size: .9rem;
+    padding: .65rem .85rem;
+}
+.form-field textarea { resize: vertical; min-height: 60px; }
+
+.inventory-filter { display: flex; gap: .75rem; flex-wrap: wrap; align-items: center; }
+
+/* ── Buttons ── */
+.primary-btn {
+    background: var(--primary-500);
+    color: white;
+    border: 0;
+    border-radius: var(--radius);
+    padding: .7rem 1.4rem;
+    font-weight: 700;
+    cursor: pointer;
+    font-size: .9rem;
+}
+.primary-btn:hover { background: var(--primary-600); }
+.primary-btn.small-btn { padding: .45rem .85rem; font-size: .82rem; }
+.secondary-btn {
+    background: var(--neutral-100);
+    color: var(--neutral-700);
+    border: 1px solid var(--neutral-300);
+    border-radius: var(--radius);
+    padding: .45rem .85rem;
+    font-weight: 700;
+    cursor: pointer;
+    font-size: .82rem;
+}
+.secondary-btn.small-btn { padding: .35rem .7rem; font-size: .78rem; }
+.action-btn {
+    border: 0;
+    border-radius: var(--radius);
+    padding: .4rem .75rem;
+    font-weight: 700;
+    font-size: .78rem;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-block;
+}
+.download-btn { background: #dbeafe; color: #1d4ed8; }
+.download-btn:hover { background: #bfdbfe; }
+.delete-btn  { background: #fee2e2; color: #b91c1c; }
+.delete-btn:hover { background: #fecaca; }
+
+/* ── Books Grid ── */
+.books-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 1.5rem;
+    padding: 1.5rem;
+}
+
+/* ── Book Card ── */
+.book-card {
+    background: var(--neutral-50);
+    border: 1px solid var(--neutral-200);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    transition: box-shadow .2s, transform .15s;
+}
+.book-card:hover {
+    box-shadow: 0 8px 30px rgba(0,0,0,.12);
+    transform: translateY(-2px);
+}
+
+/* Cover */
+.book-cover-wrap {
+    position: relative;
+    height: 180px;
+    background: linear-gradient(135deg, #1e3a5f, #2563eb);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+.book-cover-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.book-cover-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+}
+.cover-icon { font-size: 4rem; opacity: .5; }
+.book-cover-wrap .stock-badge {
+    position: absolute;
+    top: .75rem;
+    right: .75rem;
+    font-size: .72rem;
+}
+
+/* Info */
+.book-info { padding: 1rem 1rem .5rem; }
+.book-title { font-size: 1.05rem; font-weight: 800; color: var(--neutral-900); margin: 0 0 .2rem; }
+.book-author { font-size: .85rem; color: var(--neutral-500); margin: 0 0 .3rem; }
+.book-isbn  { margin: 0 0 .4rem; }
+.book-isbn code { font-size: .75rem; }
+.category-badge {
+    background: #ecfdf5;
+    color: #047857;
+    border-radius: var(--radius-full);
+    font-size: .72rem;
+    font-weight: 700;
+    padding: .2rem .6rem;
+    display: inline-block;
+    margin-bottom: .4rem;
+}
+.book-desc {
+    font-size: .82rem;
+    color: var(--neutral-600);
+    margin: .4rem 0;
+    line-height: 1.5;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+.book-qty { font-size: .78rem; color: var(--neutral-500); margin: .3rem 0 0; }
+
+/* Sections inside card */
+.book-section {
+    border-top: 1px solid var(--neutral-200);
+    padding: .75rem 1rem;
+}
+.section-label {
+    font-size: .78rem;
+    font-weight: 700;
+    color: var(--neutral-600);
+    margin: 0 0 .5rem;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+}
+
+/* File / Audio ready state */
+.file-ready, .audio-ready, .cover-uploaded {
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+}
+.file-badge {
+    display: inline-block;
+    background: #ecfdf5;
+    color: #047857;
+    border-radius: var(--radius-full);
+    font-size: .72rem;
+    font-weight: 700;
+    padding: .2rem .6rem;
+    width: fit-content;
+}
+.audio-player {
+    width: 100%;
+    height: 36px;
+    border-radius: var(--radius);
+}
+
+/* Upload forms inside card */
+.upload-form { display: flex; flex-direction: column; gap: .5rem; }
+.upload-label {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    font-size: .78rem;
+    color: var(--neutral-600);
+    cursor: pointer;
+    padding: .5rem;
+    border: 1.5px dashed var(--neutral-300);
+    border-radius: var(--radius);
+    transition: border-color .2s, background .2s;
+}
+.upload-label:hover {
+    border-color: var(--primary-500);
+    background: var(--neutral-50);
+}
+.upload-icon { font-size: 1rem; }
+.upload-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Empty state */
+.empty-state {
+    text-align: center;
+    padding: 3rem;
+    color: var(--neutral-500);
+}
+.empty-state svg {
+    margin: 0 auto 1.5rem;
+    display: block;
+    color: var(--neutral-300);
+}
+.empty-state h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--neutral-900);
+    margin: 0 0 0.5rem 0;
+}
+</style>
+{% endblock %}

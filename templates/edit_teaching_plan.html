@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Edit Teaching Plan - {{ session.school_name }}{% endblock %}
+{% block page_title %}Edit Teaching Plan{% endblock %}
+{% block content %}
+<form method="post" enctype="multipart/form-data" class="form-section">
+  <legend>1. Administrative</legend>
+  <div class="form-grid">
+    <div class="form-field full-width"><label>Plan Title *</label><input name="title" required value="{{ plan.title or '' }}"></div>
+    <div class="form-field"><label>Subject *</label>
+      <select name="subject" required>
+        <option value="">Select subject...</option>
+        {% for s in school_subjects %}<option value="{{ s.name }}" {{ 'selected' if plan.subject == s.name else '' }}>{{ s.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="form-field"><label>Grade *</label>
+      <select name="grade" required>
+        <option value="">Select grade...</option>
+        {% for g in grade_levels %}<option value="{{ g.name }}" {{ 'selected' if plan.grade == g.name else '' }}>{{ g.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="form-field"><label>Section *</label>
+      <select name="section" required>
+        <option value="">Select section...</option>
+        {% for s in sections %}<option value="{{ s.name }}" {{ 'selected' if plan.section == s.name else '' }}>{{ s.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="form-field"><label>Plan Date</label><input name="plan_date" type="date" value="{{ plan.plan_date or '' }}"></div>
+    <div class="form-field"><label>Status</label>
+      <select name="status"><option value="draft" {{ 'selected' if plan.status == 'draft' else '' }}>Draft</option><option value="published" {{ 'selected' if plan.status == 'published' else '' }}>Published</option><option value="archived" {{ 'selected' if plan.status == 'archived' else '' }}>Archived</option></select>
+    </div>
+  </div>
+
+  <legend>2. Schedule</legend>
+  <div class="form-grid">
+    <div class="form-field"><label>Week Number</label>
+      <select name="week_number">
+        <option value="">Select week</option>
+        {% for w in range(1, 14) %}<option value="{{ w }}" {{ 'selected' if plan.week_number == w else '' }}>Week {{ w }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="form-field"><label>Week Ending</label><input name="week_ending" type="date" value="{{ plan.week_ending or '' }}"></div>
+    <div class="form-field"><label>Day</label>
+      <select name="day_of_week"><option value="">Select</option>{% for d in ['Monday','Tuesday','Wednesday','Thursday','Friday'] %}<option value="{{ d }}" {{ 'selected' if plan.day_of_week == d else '' }}>{{ d }}</option>{% endfor %}</select>
+    </div>
+    <div class="form-field"><label>Period & Duration</label><input name="period_duration" value="{{ plan.period_duration or '' }}"></div>
+    <div class="form-field"><label>Duration (weeks)</label><input name="duration" type="number" min="1" value="{{ plan.duration or '' }}"></div>
+    <div class="form-field"><label>Start Date</label><input name="start_date" type="date" value="{{ plan.start_date or '' }}"></div>
+    <div class="form-field"><label>End Date</label><input name="end_date" type="date" value="{{ plan.end_date or '' }}"></div>
+  </div>
+
+  <legend>3. Curriculum Standards & Benchmarks</legend>
+  <div class="form-grid">
+    <div class="form-field"><label>Strand</label><input name="strand" value="{{ plan.strand or '' }}"></div>
+    <div class="form-field"><label>Sub-strand</label><input name="sub_strand" value="{{ plan.sub_strand or '' }}"></div>
+    <div class="form-field full-width"><label>Content Standard</label><input name="content_standard" value="{{ plan.content_standard or '' }}"></div>
+    <div class="form-field full-width"><label>Indicator</label><input name="indicator" value="{{ plan.indicator or '' }}"></div>
+    <div class="form-field full-width"><label>Performance Indicator</label><input name="performance_indicator" value="{{ plan.performance_indicator or '' }}"></div>
+  </div>
+
+  <legend>4. Competencies & Resources</legend>
+  <div class="form-grid">
+    <div class="form-field"><label>Core Competencies</label><textarea name="core_competencies" rows="2">{{ plan.core_competencies or '' }}</textarea></div>
+    <div class="form-field"><label>Keywords</label><input name="keywords" value="{{ plan.keywords or '' }}"></div>
+    <div class="form-field full-width"><label>TLM</label><textarea name="tlm" rows="2">{{ plan.tlm or '' }}</textarea></div>
+    <div class="form-field full-width"><label>References</label><textarea name="references" rows="2">{{ plan.references or '' }}</textarea></div>
+  </div>
+
+  <legend>5. Instructional Phases</legend>
+  <div class="form-grid">
+    <div class="form-field full-width"><label>Phase 1: Starter / Introduction</label><textarea name="starter_activities" rows="3">{{ plan.starter_activities or '' }}</textarea></div>
+    <div class="form-field full-width"><label>Phase 2: Main Learning Activities</label><textarea name="main_activities" rows="4">{{ plan.main_activities or '' }}</textarea></div>
+    <div class="form-field full-width"><label>Formative Assessment</label><textarea name="formative_assessment" rows="2">{{ plan.formative_assessment or '' }}</textarea></div>
+    <div class="form-field full-width"><label>Phase 3: Plenary / Reflection</label><textarea name="plenary_reflection" rows="3">{{ plan.plenary_reflection or '' }}</textarea></div>
+  </div>
+
+  <legend>6. Teacher Reflection</legend>
+  <div class="form-grid">
+    <div class="form-field full-width"><label>Teacher Reflection</label><textarea name="teacher_reflection" rows="3">{{ plan.teacher_reflection or '' }}</textarea></div>
+  </div>
+
+  <legend>7. Attachment</legend>
+  {% if plan.attachment_name %}
+  <div class="form-field"><a href="{{ url_for('download_teaching_plan_attachment', plan_id=plan.id) }}">📎 {{ plan.attachment_name }}</a></div>
+  <p>Upload a new file to replace the current attachment.</p>
+  {% endif %}
+  <div class="form-field"><label>Upload New File</label><input type="file" name="plan_attachment"></div>
+
+  <div class="form-actions">
+    <button type="submit" class="primary-btn">Update</button>
+    <a href="{{ url_for('view_teaching_plan', plan_id=plan.id) }}" class="secondary-btn">Cancel</a>
+  </div>
+</form>
+{% endblock %}

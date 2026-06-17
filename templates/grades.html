@@ -1,0 +1,1072 @@
+{% extends "base.html" %}
+{% block title %}Grades - EUREKA{% endblock %}
+{% block page_title %}Grade Management{% endblock %}
+{% block content %}
+<div class="grades-dashboard">
+
+    <!-- Header -->
+    <div class="page-header-section grades-header">
+        <div class="header-content">
+            <div>
+                <h1>Grade Management</h1>
+                <p>Record, view, and send grades to students and parents</p>
+            </div>
+            <div class="header-actions">
+                <a href="{{ url_for('download_grades_csv') }}" class="primary-btn btn-sm">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <polyline points="7 10 12 15 17 10"/>
+                        <line x1="12" y1="15" x2="12" y2="3"/>
+                    </svg>
+                    Export CSV
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Class/Section Selection Card -->
+    <div class="card selection-card">
+        <div class="card-header">
+            <div>
+                <h2 class="card-title">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                        <circle cx="9" cy="7" r="4"/>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                    </svg>
+                    Select Class & Section
+                </h2>
+                <p class="card-subtitle">Choose a class and section to view students</p>
+            </div>
+        </div>
+
+        <form method="get" action="{{ url_for('grades') }}" class="grade-selection-form" id="classSectionForm">
+            <div class="form-row">
+                <div class="form-field">
+                    <label for="grade">Class/Grade</label>
+                    <select id="grade" name="grade" onchange="loadStudentsByClassSection()">
+                        <option value="">All Classes</option>
+                        {% for grade in grade_levels %}
+                        <option value="{{ grade }}" {% if selected_grade == grade %}selected{% endif %}>{{ grade }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-field">
+                    <label for="section">Section</label>
+                    <select id="section" name="section" onchange="loadStudentsByClassSection()">
+                        <option value="">All Sections</option>
+                        {% for section in sections %}
+                        <option value="{{ section }}" {% if selected_section == section %}selected{% endif %}>{{ section }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-field">
+                    <label for="term">Term</label>
+                    <select id="term" name="term" onchange="loadStudentsByClassSection()">
+                        <option value="">Select term...</option>
+                        {% for term in term_options %}
+                        <option value="{{ term }}" {% if selected_term == term %}selected{% endif %}>{{ term }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Student List Card -->
+    <div class="card student-list-card">
+        <div class="card-header">
+            <div>
+                <h2 class="card-title">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                        <circle cx="9" cy="7" r="4"/>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                    </svg>
+                    Students in {{ selected_grade or 'All' }} {{ selected_section or '' }}
+                </h2>
+                <p class="card-subtitle">Click on a student to view/edit grades</p>
+            </div>
+            <div class="card-actions">
+                <span class="student-count-badge">{{ students|length }} students</span>
+            </div>
+        </div>
+
+        <div class="table-wrapper">
+            <table class="student-grade-table" id="studentTable">
+                <thead>
+                    <tr>
+                        <th>Student</th>
+                        <th>Student ID</th>
+                        <th>Parent/Guardian</th>
+                        <th>Contact</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for student in students %}
+                    <tr class="student-row" data-student-id="{{ student.id }}" data-grade="{{ student.grade }}" data-section="{{ student.section }}">
+<td>
+    <div class="user-cell">
+        <div class="user-avatar-sm">{{ student.name[0]|upper }}</div>
+        <div>
+            <strong class="student-name"><a href="{{ url_for('view_student', student_id=student.id) }}">{{ student.name }}</a></strong>
+            <br>
+            <small>{{ student.grade }} {{ student.section or '' }}</small>
+        </div>
+    </div>
+</td>
+                        <td><code>{{ student.student_number }}</code></td>
+                        <td>{{ student.parent_name or 'N/A' }}</td>
+                        <td>
+                            {% if student.parent_contact %}
+                            <span class="contact-badge">{{ student.parent_contact }}</span>
+                            {% else %}
+                            <span class="no-contact">No contact</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="action-buttons">
+                                <button class="btn-icon btn-view" onclick="viewStudentGrades({{ student.id }})" title="View/Edit Grades">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 14l-4 1 1-4 9.5-9.5z"/>
+                                    </svg>
+                                </button>
+                                <button class="btn-icon btn-email" onclick="sendGradeViaEmail({{ student.id }})" title="Send via Email" {% if not student.parent_email %}disabled{% endif %}>
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                                        <polyline points="22,6 12,13 2,6"/>
+                                    </svg>
+                                </button>
+                                <button class="btn-icon btn-whatsapp" onclick="sendGradeViaWhatsApp({{ student.id }})" title="Send via WhatsApp" {% if not student.parent_contact %}disabled{% endif %}>
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-4.1a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8.9h.5a2 2 0 0 1 2 2v.5a2 2 0 0 1-2 2h-.5a8.5 8.5 0 0 1-7.6-4.7z"/>
+                                    </svg>
+                                </button>
+                                <button class="btn-icon btn-sms" onclick="sendGradeViaSMS({{ student.id }})" title="Send via SMS" {% if not student.parent_contact %}disabled{% endif %}>
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="empty-state">No students found. Select a class and section to view students.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Grade Entry Modal -->
+    <div class="modal" id="gradeModal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalStudentName">Student Grades</h3>
+                <button class="modal-close" onclick="closeGradeModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form method="post" action="{{ url_for('save_grades') }}" id="gradesForm">
+                    <input type="hidden" name="student_id" id="modalStudentId">
+                    <input type="hidden" name="term" value="{{ selected_term }}">
+                    
+                    <div class="grade-entry-grid">
+<div class="grade-entry-header">
+                            <div>Subject</div>
+                            <div>Class Test ({{ (class_test_weight * 100)|round }}%)</div>
+                            <div>Midterm Exam ({{ (midterm_exam_weight * 100)|round }}%)</div>
+                            <div>Class Score ({{ (class_score_weight * 100)|round }}%)</div>
+                            <div>Final Exam ({{ (final_exam_weight * 100)|round }}%)</div>
+                            <div>Total Score</div>
+                            <div>Grade</div>
+                            <div>Remarks</div>
+                        </div>
+                        
+                        <div id="gradeEntries">
+                            <!-- Dynamic grade entries will be loaded here -->
+                        </div>
+                    </div>
+
+                        <div class="grade-summary">
+                            <div class="form-row">
+                                <div class="form-field">
+                                    <label>Attendance (Present/Total)</label>
+                                    <div class="attendance-inputs">
+                                        <input type="number" name="attendance_present" min="0" max="100" value="0" style="width: 70px;">
+                                        <span>/</span>
+                                        <input type="number" name="attendance_total" min="0" max="100" value="0" style="width: 70px;">
+                                    </div>
+                                </div>
+                                <div class="form-field">
+                                    <label>Promoted To</label>
+                                    <input type="text" name="promoted_to" placeholder="Grade/Class">
+                                </div>
+                            </div>
+
+                            <div class="form-row" style="margin-top: 1rem;">
+                                <div class="form-field">
+                                    <label>Teacher's Remarks</label>
+                                    <textarea name="teacher_remarks" rows="2" style="width: 100%;" placeholder="Teacher's comments on student performance">{{ teacher_remarks or '' }}</textarea>
+                                </div>
+                                <div class="form-field">
+                                    <label>Student's Interest / Special Ability</label>
+                                    <textarea name="interest" rows="2" style="width: 100%;" placeholder="e.g., Football, Drawing, Music">{{ interest or '' }}</textarea>
+                                </div>
+                            </div>
+
+                            <div class="form-row" style="margin-top: 1rem;">
+                                <div class="form-field">
+                                    <label>Position in Class</label>
+                                    <input type="text" name="position" placeholder="e.g., 1st, 2nd" value="{{ position or '' }}">
+                                </div>
+                                <div class="form-field">
+                                    <label>Number of Students in Class</label>
+                                    <input type="number" name="class_size" min="0" placeholder="e.g., 30" value="{{ class_size or '' }}">
+                                </div>
+                            </div>
+
+                            <div class="form-row" style="margin-top: 1rem;">
+                                <div class="form-field">
+                                    <label>Reopening Date</label>
+                                    <input type="date" name="reopening_date" value="{{ reopening_date or '' }}">
+                                </div>
+                                <div class="form-field">
+                                    <label>Conduct</label>
+                                    <select name="conduct" style="width: 100%;">
+                                        <option value="">Select Conduct</option>
+                                        <option value="Excellent" {% if conduct == 'Excellent' %}selected{% endif %}>Excellent</option>
+                                        <option value="Very Good" {% if conduct == 'Very Good' %}selected{% endif %}>Very Good</option>
+                                        <option value="Good" {% if conduct == 'Good' %}selected{% endif %}>Good</option>
+                                        <option value="Fair" {% if conduct == 'Fair' %}selected{% endif %}>Fair</option>
+                                        <option value="Poor" {% if conduct == 'Poor' %}selected{% endif %}>Poor</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-field" style="margin-top: 1rem;">
+                                <label>Head Teacher's Remarks</label>
+                                <textarea name="head_remarks" rows="2" style="width: 100%;">{{ head_remarks or '' }}</textarea>
+                            </div>
+                        </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" onclick="closeGradeModal()">Cancel</button>
+                        <button type="submit" class="primary-btn">Save Grades</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Send Grade Modal -->
+    <div class="modal" id="sendModal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="sendModalTitle">Send Grade</h3>
+                <button class="modal-close" onclick="closeSendModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form method="post" action="{{ url_for('send_grades') }}" id="sendGradeForm">
+                    <input type="hidden" name="student_id" id="sendStudentId">
+                    <input type="hidden" name="send_method" id="sendMethod">
+                    <input type="hidden" name="term" value="{{ selected_term }}">
+                    
+                    <div class="form-field">
+                        <label>Recipient</label>
+                        <input type="text" id="sendRecipient" readonly>
+                    </div>
+
+                    <div class="form-field">
+                        <label>Subject</label>
+                        <input type="text" name="subject" value="Grade Report - {{ selected_term or 'Current Term' }}" required>
+                    </div>
+
+                    <div class="form-field">
+                        <label>Message</label>
+                        <textarea name="message" rows="5" id="sendMessage"></textarea>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" onclick="closeSendModal()">Cancel</button>
+                        <button type="submit" class="primary-btn">Send</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<style>
+.grades-dashboard {
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+/* Header */
+.grades-header {
+    background: linear-gradient(135deg, var(--info) 0%, var(--primary-500) 100%);
+    color: white;
+    border-radius: 24px;
+    padding: 2rem 2.5rem;
+    margin-bottom: 1.75rem;
+}
+
+.grades-header .header-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.grades-header h1 {
+    margin: 0;
+    font-size: 2.1rem;
+    letter-spacing: 0.02em;
+}
+
+.grades-header p {
+    margin: 0.5rem 0 0;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+/* Selection Card */
+.selection-card {
+    margin-bottom: 1.75rem;
+}
+
+.selection-card .card-title {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.grade-selection-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+/* Form Styles */
+.form-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1.25rem;
+}
+
+.form-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.form-field label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--neutral-700);
+}
+
+.form-field input,
+.form-field select,
+.form-field textarea {
+    padding: 0.75rem 1rem;
+    border: 2px solid var(--neutral-200);
+    border-radius: var(--radius);
+    font-size: 0.95rem;
+    color: var(--neutral-900);
+    background: white;
+    transition: all var(--transition-fast);
+}
+
+.form-field input:focus,
+.form-field select:focus,
+.form-field textarea:focus {
+    outline: none;
+    border-color: var(--info);
+    box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.1);
+}
+
+/* Primary Button */
+.primary-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.875rem 1.75rem;
+    background: linear-gradient(135deg, var(--info) 0%, var(--primary-500) 100%);
+    color: white;
+    border: none;
+    border-radius: var(--radius);
+    font-weight: 600;
+    font-size: 0.95rem;
+    text-decoration: none;
+    transition: all var(--transition-normal);
+    cursor: pointer;
+    align-self: flex-start;
+}
+
+.primary-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(14, 165, 233, 0.4);
+}
+
+.btn-sm {
+    padding: 0.625rem 1rem;
+    font-size: 0.85rem;
+}
+
+/* Student Count Badge */
+.student-count-badge {
+    background: var(--primary-100);
+    color: var(--primary-700);
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+/* Student Table */
+.student-grade-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 0.875rem;
+}
+
+.student-grade-table th,
+.student-grade-table td {
+    padding: 0.875rem 1rem;
+    border: 1px solid var(--neutral-300);
+    text-align: left;
+}
+
+.student-grade-table th {
+    background: linear-gradient(180deg, var(--neutral-100) 0%, var(--neutral-50) 100%);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.5px;
+    color: var(--neutral-700);
+}
+
+.student-grade-table tbody tr:nth-child(odd) {
+    background: white;
+}
+
+.student-grade-table tbody tr:nth-child(even) {
+    background: var(--neutral-50);
+}
+
+.student-grade-table tbody tr:hover {
+    background: var(--primary-50);
+}
+
+/* User Cell */
+.user-cell {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.user-avatar-sm {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--info) 0%, var(--primary-500) 100%);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 0.875rem;
+    flex-shrink: 0;
+}
+
+/* Contact Badge */
+.contact-badge {
+    background: var(--success-light);
+    color: var(--success);
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.no-contact {
+    color: var(--neutral-400);
+    font-style: italic;
+    font-size: 0.8125rem;
+}
+
+/* Action Buttons */
+.action-buttons {
+    display: flex;
+    gap: 0.25rem;
+    align-items: center;
+}
+
+.btn-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: none;
+    background: var(--neutral-100);
+    color: var(--neutral-600);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all var(--transition-fast);
+}
+
+.btn-icon:hover:not(:disabled) {
+    background: var(--primary-100);
+    color: var(--primary-600);
+}
+
+.btn-icon:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.btn-view { background: var(--info-light); color: var(--info); }
+.btn-view:hover:not(:disabled) { background: var(--info); color: white; }
+
+.btn-email { background: var(--primary-100); color: var(--primary-600); }
+.btn-email:hover:not(:disabled) { background: var(--primary-600); color: white; }
+
+.btn-whatsapp { background: #d1fae5; color: #065f46; }
+.btn-whatsapp:hover:not(:disabled) { background: #065f46; color: white; }
+
+.btn-sms { background: #fef3c7; color: #92400e; }
+.btn-sms:hover:not(:disabled) { background: #92400e; color: white; }
+
+/* Modal */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background: white;
+    border-radius: var(--radius);
+    max-width: 1120px;
+    width: min(96vw, 1120px);
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem;
+    border-bottom: 1px solid var(--neutral-200);
+}
+
+.modal-header h3 {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 700;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: var(--neutral-500);
+    padding: 0;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-close:hover {
+    color: var(--neutral-900);
+}
+
+.modal-body {
+    padding: 1.5rem;
+}
+
+/* Grade Entry Grid */
+.grade-entry-grid {
+    margin-bottom: 1.5rem;
+    overflow-x: auto;
+    border: 1px solid var(--neutral-200);
+    border-radius: var(--radius);
+    background: white;
+}
+
+.grade-entry-header {
+    display: grid;
+    grid-template-columns: minmax(170px, 1.6fr) repeat(4, minmax(112px, 1fr)) minmax(104px, 0.9fr) minmax(88px, 0.75fr) minmax(170px, 1.4fr);
+    min-width: 1080px;
+    gap: 0.625rem;
+    padding: 0.875rem;
+    background: var(--neutral-100);
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    text-align: center;
+    align-items: center;
+}
+
+.grade-entry-row {
+    display: grid;
+    grid-template-columns: minmax(170px, 1.6fr) repeat(4, minmax(112px, 1fr)) minmax(104px, 0.9fr) minmax(88px, 0.75fr) minmax(170px, 1.4fr);
+    min-width: 1080px;
+    gap: 0.625rem;
+    padding: 0.875rem;
+    border-top: 1px solid var(--neutral-200);
+    align-items: center;
+}
+
+.grade-entry-header > div,
+.grade-entry-row > div {
+    min-width: 0;
+}
+
+.grade-entry-row > div:first-of-type {
+    font-weight: 600;
+    color: var(--neutral-800);
+    text-align: left;
+    line-height: 1.35;
+}
+
+.grade-entry-row input {
+    width: 100%;
+    min-width: 0;
+    height: 42px;
+    padding: 0.5rem 0.625rem;
+    border: 1px solid var(--neutral-300);
+    border-radius: 6px;
+    text-align: center;
+    font-size: 0.875rem;
+    box-sizing: border-box;
+    background: white;
+}
+
+.grade-entry-row input:focus {
+    outline: none;
+    border-color: var(--info);
+    box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.12);
+}
+
+.grade-entry-row input[data-remark] {
+    text-align: left;
+}
+
+.grade-entry-row input.total-score {
+    background: var(--neutral-50);
+    font-weight: 600;
+}
+
+.grade-entry-row input[readonly]:not(.total-score) {
+    background: var(--neutral-50);
+    color: var(--neutral-700);
+}
+
+#gradeEntries .grade-entry-row:first-child {
+    border-top: none;
+}
+
+/* Grade Summary */
+.grade-summary {
+    background: var(--neutral-50);
+    padding: 1rem;
+    border-radius: var(--radius);
+    margin-top: 1rem;
+}
+
+.attendance-inputs {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* Modal Footer */
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--neutral-200);
+}
+
+.btn-secondary {
+    padding: 0.75rem 1.5rem;
+    background: var(--neutral-200);
+    color: var(--neutral-700);
+    border: none;
+    border-radius: var(--radius);
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.btn-secondary:hover {
+    background: var(--neutral-300);
+}
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: var(--neutral-500);
+    font-size: 0.9375rem;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .grades-header {
+        padding: 1.5rem;
+    }
+    
+    .grades-header h1 {
+        font-size: 1.5rem;
+    }
+    
+    .form-row {
+        grid-template-columns: 1fr;
+    }
+    
+    .student-grade-table th,
+    .student-grade-table td {
+        padding: 0.5rem 0.375rem;
+        font-size: 0.8125rem;
+    }
+    
+    .grade-entry-header,
+    .grade-entry-row {
+        min-width: 1080px;
+    }
+    
+    .action-buttons {
+        flex-wrap: wrap;
+    }
+}
+
+@media (max-width: 480px) {
+    .primary-btn {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .user-avatar-sm {
+        width: 24px;
+        height: 24px;
+        font-size: 0.625rem;
+    }
+}
+</style>
+
+<script>
+const studentsData = {{ students|tojson }};
+const subjectsData = {{ subjects|tojson }};
+const classSubjectsByGrade = {{ class_subjects_by_grade|tojson }};
+const selectedGrade = "{{ selected_grade }}";
+const gradeWeights = {
+    class_test: {{ class_test_weight|tojson }},
+    midterm_exam: {{ midterm_exam_weight|tojson }},
+    class_score: {{ class_score_weight|tojson }},
+    final_exam: {{ final_exam_weight|tojson }}
+};
+
+function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, function(char) {
+        return {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;'
+        }[char];
+    });
+}
+
+function loadStudentsByClassSection() {
+    const params = new URLSearchParams();
+    const grade = document.getElementById('grade').value;
+    const section = document.getElementById('section').value;
+    const term = document.getElementById('term').value;
+
+    if (grade) params.set('grade', grade);
+    if (section) params.set('section', section);
+    if (term) params.set('term', term);
+
+    window.location.href = `{{ url_for('grades') }}?${params.toString()}`;
+}
+
+function inputCell(type, name, value, attrs = '') {
+    return `<div><input type="${type}" name="${escapeHtml(name)}" value="${escapeHtml(value)}" ${attrs}></div>`;
+}
+
+function viewStudentGrades(studentId) {
+     const student = studentsData.find(s => Number(s.id) === Number(studentId));
+     if (!student) return;
+
+     document.getElementById('modalStudentName').textContent = `${student.name} - Grades`;
+     document.getElementById('modalStudentId').value = student.id;
+
+     const gradeEntries = document.getElementById('gradeEntries');
+     gradeEntries.innerHTML = '';
+
+     // Get available subjects for this student's grade
+     const selectedGradeValue = "{{ selected_grade }}";
+     const selectedSectionValue = "{{ selected_section }}";
+     let subjectsToUse = [];
+     const subjectsArray = Array.isArray(subjectsData) ? subjectsData : Object.keys(subjectsData || {});
+     
+     // Priority 1: Use class-specific subjects if available
+     if (selectedGradeValue && classSubjectsByGrade && classSubjectsByGrade[selectedGradeValue]) {
+         const classSubjects = classSubjectsByGrade[selectedGradeValue];
+         if (classSubjects && classSubjects.length > 0) {
+             subjectsToUse = classSubjects;
+         } else {
+             subjectsToUse = subjectsArray;
+         }
+     } else {
+         subjectsToUse = subjectsArray;
+     }
+
+const headRemarksInput = document.querySelector('textarea[name="head_remarks"]');
+     if (headRemarksInput) {
+         headRemarksInput.value = student.head_remarks || '';
+     }
+
+     const teacherRemarksInput = document.querySelector('textarea[name="teacher_remarks"]');
+     if (teacherRemarksInput) {
+         teacherRemarksInput.value = student.teacher_remarks || '';
+     }
+
+     const interestInput = document.querySelector('textarea[name="interest"]');
+     if (interestInput) {
+         interestInput.value = student.interest || '';
+     }
+
+     const conductInput = document.querySelector('select[name="conduct"]');
+     if (conductInput && student.conduct) {
+         conductInput.value = student.conduct;
+     }
+
+     const signatureInput = document.querySelector('input[name="signature"]');
+     if (signatureInput && student.signature) {
+         signatureInput.value = student.signature;
+     }
+
+     const positionInput = document.querySelector('input[name="position"]');
+     if (positionInput && student.position) {
+         positionInput.value = student.position;
+     }
+
+     const classSizeInput = document.querySelector('input[name="class_size"]');
+     if (classSizeInput && student.class_size) {
+         classSizeInput.value = student.class_size;
+     }
+
+     const reopeningDateInput = document.querySelector('input[name="reopening_date"]');
+     if (reopeningDateInput && student.reopening_date) {
+         reopeningDateInput.value = student.reopening_date;
+     }
+
+     // Remove duplicate subjects
+     const uniqueSubjects = [...new Set(subjectsToUse.map(s => typeof s === 'string' ? s : s.name))];
+
+     uniqueSubjects.forEach(subject => {
+        const gradeData = (student.grades || {})[subject] || {};
+        const row = document.createElement('div');
+        row.className = 'grade-entry-row';
+row.innerHTML = `
+            <input type="hidden" name="subject" value="${escapeHtml(subject)}">
+            <div>${escapeHtml(subject)}</div>
+            ${inputCell('number', `class_test_${subject}`, gradeData.class_test, `min="0" max="100" step="0.1" placeholder="Score" data-weight="${gradeWeights.class_test}" oninput="calculateTotal(this)"`)}
+            ${inputCell('number', `midterm_exam_${subject}`, gradeData.midterm_exam, `min="0" max="100" step="0.1" placeholder="Score" data-weight="${gradeWeights.midterm_exam}" oninput="calculateTotal(this)"`)}
+            ${inputCell('number', `class_score_${subject}`, gradeData.class_score, `min="0" max="100" step="0.1" placeholder="Score" data-weight="${gradeWeights.class_score}" oninput="calculateTotal(this)"`)}
+            ${inputCell('number', `final_exam_${subject}`, gradeData.final_exam, `min="0" max="100" step="0.1" placeholder="Score" data-weight="${gradeWeights.final_exam}" oninput="calculateTotal(this)"`)}
+            ${inputCell('number', `total_score_${subject}`, gradeData.total_score, `class="total-score" readonly`)}
+            ${inputCell('text', `grade_${subject}`, gradeData.grade, `placeholder="Grade" oninput="generateRemark(this)"`)}
+            ${inputCell('text', `remark_${subject}`, gradeData.remark, `placeholder="Remark" data-remark`)}
+        `;
+        gradeEntries.appendChild(row);
+        calculateTotal(row);
+    });
+
+    document.getElementById('gradeModal').style.display = 'flex';
+}
+
+function calculateTotal(source) {
+    const row = source.classList?.contains('grade-entry-row') ? source : source.closest('.grade-entry-row');
+    if (!row) return;
+
+    const scoreInputs = row.querySelectorAll('[data-weight]');
+    
+    const total = Array.from(scoreInputs).reduce((sum, input) => {
+        const value = parseFloat(input.value);
+        const weight = parseFloat(input.dataset.weight);
+        return sum + ((Number.isNaN(value) ? 0 : value) * weight);
+    }, 0);
+    
+    const totalInput = row.querySelector('.total-score');
+    totalInput.value = total.toFixed(1);
+    
+    // Auto-generate grade and remark based on total
+    generateGradeAndRemark(row, total);
+}
+
+function generateGradeAndRemark(row, total) {
+    const gradeInput = row.querySelector('input[name^="grade_"]');
+    const remarkInput = row.querySelector('[data-remark]');
+    
+    if (!gradeInput || !remarkInput) return;
+    
+    // Grade thresholds based on total score (out of 100)
+    let grade, remark;
+    
+    if (total >= 95) {
+        grade = 'A+';
+        remark = 'Excellent. Outstanding / Exceptional work. Shows deep understanding. Consistently performs at a high level.';
+    } else if (total >= 90) {
+        grade = 'A';
+        remark = 'Excellent. High-quality results. Active class participant. Expresses ideas clearly.';
+    } else if (total >= 85) {
+        grade = 'B+';
+        remark = 'Very Good. High-quality results. Active class participant. Expresses ideas clearly.';
+    } else if (total >= 80) {
+        grade = 'B';
+        remark = 'Very Good / Good. High-quality results. Active class participant. Expresses ideas clearly.';
+    } else if (total >= 75) {
+        grade = 'C+';
+        remark = 'Satisfactory. Competent work. Meets basic requirements. Capable of higher achievement with focus.';
+    } else if (total >= 70) {
+        grade = 'C';
+        remark = 'Satisfactory / Fair. Competent work. Meets basic requirements. Capable of higher achievement with focus.';
+    } else if (total >= 65) {
+        grade = 'D+';
+        remark = 'Needs Improvement. Struggles to stay on task. Requires frequent reminders. Extra support needed.';
+    } else if (total >= 60) {
+        grade = 'D';
+        remark = 'Needs Improvement. Struggles to stay on task. Requires frequent reminders. Extra support needed.';
+    } else {
+        grade = 'F';
+        remark = 'Unsatisfactory. Below grade expectations. Missing core assignments. Frequent absences impacting performance.';
+    }
+    
+    gradeInput.value = grade;
+    remarkInput.value = remark;
+}
+
+function generateRemark(source) {
+    const row = source.classList?.contains('grade-entry-row') ? source : source.closest('.grade-entry-row');
+    if (!row) return;
+
+    const gradeInput = row.querySelector('input[name^="grade_"]');
+    const remarkInput = row.querySelector('[data-remark]');
+
+    if (!gradeInput || !remarkInput) return;
+
+    const grade = gradeInput.value.toUpperCase();
+
+    const remarks = {
+        'A+': 'Excellent. Outstanding / Exceptional work. Shows deep understanding. Consistently performs at a high level.',
+        'A': 'Excellent. High-quality results. Active class participant. Expresses ideas clearly.',
+        'B+': 'Very Good. High-quality results. Active class participant. Expresses ideas clearly.',
+        'B': 'Very Good / Good. High-quality results. Active class participant. Expresses ideas clearly.',
+        'C+': 'Satisfactory. Competent work. Meets basic requirements. Capable of higher achievement with focus.',
+        'C': 'Satisfactory / Fair. Competent work. Meets basic requirements. Capable of higher achievement with focus.',
+        'D+': 'Needs Improvement. Struggles to stay on task. Requires frequent reminders. Extra support needed.',
+        'D': 'Needs Improvement. Struggles to stay on task. Requires frequent reminders. Extra support needed.',
+        'F': 'Unsatisfactory. Below grade expectations. Missing core assignments. Frequent absences impacting performance.',
+        '1': 'Outstanding / Excellent performance. Keeps up the brilliant work.',
+        '2': 'High / Very Good / Very good. Very high understanding of the subject matter.',
+        '3': 'High Average / Good / Good. Possesses a reasonable and fair understanding.',
+        '4': 'Average / Credit / Satisfactory. Average performance but capable of better.',
+        '5': 'Low / Pass / Pass. A developing understanding; requires close monitoring.',
+        '6': 'Lower / Weak / Needs Improvement. Struggling with basic concepts.',
+        '9': 'Lowest / Failure / Unsatisfactory. Intensive remedial attention required.'
+    };
+
+    remarkInput.value = remarks[grade] || '';
+}
+
+function openSendModal(studentId, method) {
+    const student = studentsData.find(s => Number(s.id) === Number(studentId));
+    if (!student) return;
+
+    const recipient = method === 'email' ? student.parent_email : student.parent_contact;
+    if (!recipient) return;
+
+    const labels = {
+        email: 'Email',
+        whatsapp: 'WhatsApp',
+        sms: 'SMS'
+    };
+
+    document.getElementById('sendModalTitle').textContent = `Send Grade via ${labels[method]}`;
+    document.getElementById('sendStudentId').value = student.id;
+    document.getElementById('sendMethod').value = method;
+    document.getElementById('sendRecipient').value = recipient;
+    document.getElementById('sendMessage').value = '';
+    document.getElementById('sendModal').style.display = 'flex';
+}
+
+function sendGradeViaEmail(studentId) {
+    openSendModal(studentId, 'email');
+}
+
+function sendGradeViaWhatsApp(studentId) {
+    openSendModal(studentId, 'whatsapp');
+}
+
+function sendGradeViaSMS(studentId) {
+    openSendModal(studentId, 'sms');
+}
+
+function closeGradeModal() {
+    document.getElementById('gradeModal').style.display = 'none';
+}
+
+function closeSendModal() {
+    document.getElementById('sendModal').style.display = 'none';
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const attendancePresentInput = document.querySelector('input[name="attendance_present"]');
+    const attendanceTotalInput = document.querySelector('input[name="attendance_total"]');
+
+    if (!attendancePresentInput || !attendanceTotalInput) return;
+
+    attendancePresentInput.addEventListener('input', function() {
+        const totalValue = parseInt(attendanceTotalInput.value, 10) || 0;
+        let value = Math.min(parseInt(this.value, 10) || 0, 100);
+        if (totalValue > 0) value = Math.min(value, totalValue);
+        this.value = value;
+    });
+
+    attendanceTotalInput.addEventListener('input', function() {
+        const presentValue = parseInt(attendancePresentInput.value, 10) || 0;
+        this.value = Math.max(Math.min(parseInt(this.value, 10) || 0, 100), presentValue);
+    });
+});
+</script>
+{% endblock %}

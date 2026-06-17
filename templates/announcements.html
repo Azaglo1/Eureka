@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Announcements - Eureka{% endblock %}
+{% block page_title %}Announcements{% endblock %}
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <div>
+            <h2 class="card-title">Latest Announcements</h2>
+            <p class="card-subtitle">Important updates and notices</p>
+        </div>
+        <div class="card-actions">
+            <a href="{{ url_for('create_announcement') }}" class="btn-primary">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>
+                Create Announcement
+            </a>
+        </div>
+    </div>
+
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Title</th>
+                    <th>Priority</th>
+                    <th>Audience</th>
+                    <th>Posted By</th>
+                    <th>Date</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for announcement in announcements %}
+                <tr>
+                    <td><strong>{{ announcement.title }}</strong></td>
+                    <td><span class="status-badge {{ announcement.priority }}">{{ announcement.priority|title }}</span></td>
+                    <td>{{ announcement.target_audience|title }}</td>
+                    <td>{{ announcement.creator_name }}</td>
+                    <td>{{ announcement.created_at.strftime('%Y-%m-%d') if announcement.created_at else '' }}</td>
+                    <td>
+                        <form method="post" action="{{ url_for('delete_announcement', announcement_id=announcement.id) }}" class="inline-delete-form" onsubmit="return confirm('Delete this announcement?');">
+                            <button type="submit" class="action-btn delete-btn">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" style="text-align: center; padding: 2rem; color: var(--neutral-400);">
+                        No announcements found
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

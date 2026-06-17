@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% block title %}{{ school.name }} - School Portal{% endblock %}
+{% block page_title %}{{ school.name }} Portal{% endblock %}
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <div>
+            <h2 class="card-title">🏫 {{ school.name }}</h2>
+            <p class="card-subtitle">School Code: <code>{{ school.school_code }}</code></p>
+        </div>
+        <div>
+            <a href="{{ url_for('admin_panel') }}" class="secondary-btn">Back to Admin</a>
+        </div>
+    </div>
+
+    <!-- School Description -->
+    {% if school.description %}
+    <div class="detail-item" style="margin-bottom: 1.5rem;">
+        <span class="label">Description</span>
+        <span class="value">{{ school.description }}</span>
+    </div>
+    {% endif %}
+
+    <!-- Statistics Dashboard -->
+    <div class="stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin: 2rem 0;">
+        <div class="stat-card">
+            <div class="stat-icon" style="background: var(--primary-color);">👨‍🎓</div>
+            <div class="stat-info">
+                <span class="stat-value">{{ student_count }}</span>
+                <span class="stat-label">Students</span>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon" style="background: var(--success-color);">👩‍🏫</div>
+            <div class="stat-info">
+                <span class="stat-value">{{ teacher_count }}</span>
+                <span class="stat-label">Teachers</span>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon" style="background: var(--secondary-color);">👥</div>
+            <div class="stat-info">
+                <span class="stat-value">{{ admin_count }}</span>
+                <span class="stat-label">Admins</span>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon" style="background: var(--warning-color);">✅</div>
+            <div class="stat-info">
+                <span class="stat-value">{{ attendance_today }}</span>
+                <span class="stat-label">Present Today</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="portal-section" style="margin-top: 2rem;">
+        <h2>⚡ Quick Actions</h2>
+        <div class="actions-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem;">
+            <a href="{{ url_for('admin_panel') }}" class="action-card" style="text-decoration: none; padding: 1rem; border: 1px solid var(--neutral-200); border-radius: 8px; text-align: center; transition: all 0.2s;">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-bottom: 0.5rem;">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                    <circle cx="9" cy="7" r="4"/>
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                </svg>
+                <span>Manage Users</span>
+            </a>
+            <a href="{{ url_for('students') }}" class="action-card" style="text-decoration: none; padding: 1rem; border: 1px solid var(--neutral-200); border-radius: 8px; text-align: center; transition: all 0.2s;">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-bottom: 0.5rem;">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                    <circle cx="9" cy="7" r="4"/>
+                </svg>
+                <span>View Students</span>
+            </a>
+            <a href="{{ url_for('attendance') }}" class="action-card" style="text-decoration: none; padding: 1rem; border: 1px solid var(--neutral-200); border-radius: 8px; text-align: center; transition: all 0.2s;">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-bottom: 0.5rem;">
+                    <rect x="3" y="4" width="18" height="18" rx="2"/>
+                    <line x1="16" y1="2" x2="16" y2="6"/>
+                    <line x1="8" y1="2" x2="8" y2="6"/>
+                    <line x1="3" y1="10" x2="21" y2="10"/>
+                </svg>
+                <span>Take Attendance</span>
+            </a>
+            <a href="{{ url_for('grades') }}" class="action-card" style="text-decoration: none; padding: 1rem; border: 1px solid var(--neutral-200); border-radius: 8px; text-align: center; transition: all 0.2s;">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-bottom: 0.5rem;">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>
+                <span>Record Grades</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Recent Announcements -->
+    <div class="portal-section" style="margin-top: 2rem;">
+        <div class="section-header-bar">
+            <h2>📢 Recent Announcements</h2>
+            <a href="{{ url_for('announcements') }}" class="secondary-btn">View All</a>
+        </div>
+        {% if recent_announcements %}
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Created By</th>
+                        <th>Date</th>
+                        <th>Priority</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ann in recent_announcements %}
+                    <tr>
+                        <td>{{ ann.title }}</td>
+                        <td>{{ ann.created_by_name }}</td>
+                        <td>{{ ann.created_at[:10] }}</td>
+                        <td>
+                            {% if ann.priority == 'high' %}
+                            <span class="status-badge present">High</span>
+                            {% elif ann.priority == 'urgent' %}
+                            <span class="status-badge" style="background: var(--error-color); color: white;">Urgent</span>
+                            {% else %}
+                            <span class="status-badge">Normal</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p style="text-align: center; padding: 2rem; color: var(--neutral-400);">No announcements yet.</p>
+        {% endif %}
+    </div>
+
+    <!-- Upcoming Events -->
+    <div class="portal-section" style="margin-top: 2rem;">
+        <div class="section-header-bar">
+            <h2>📅 Upcoming Events</h2>
+            <a href="{{ url_for('events') }}" class="secondary-btn">View All</a>
+        </div>
+        {% if recent_events %}
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Date</th>
+                        <th>Time</th>
+                        <th>Type</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for event in recent_events %}
+                    <tr>
+                        <td>{{ event.title }}</td>
+                        <td>{{ event.event_date }}</td>
+                        <td>{{ event.start_time or '-' }}</td>
+                        <td><span class="status-badge {{ event.event_type }}">{{ event.event_type|title }}</span></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p style="text-align: center; padding: 2rem; color: var(--neutral-400);">No upcoming events.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,64 @@
+{% extends "superadmin/base.html" %}
+{% block title %}Create User - Super Admin{% endblock %}
+{% block page_title %}Create New User{% endblock %}
+{% block content %}
+<div class="portal-section">
+    <div class="section-header">
+        <a href="{{ url_for('superadmin_users') }}" class="btn btn-outline-secondary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="19" y1="12" x2="5" y2="12"/>
+                <polyline points="12 19 5 12 12 5"/>
+            </svg>
+            Back to Users
+        </a>
+    </div>
+    
+    <form method="post" class="form-container">
+        <div class="form-group">
+            <label for="name">Full Name *</label>
+            <input type="text" id="name" name="name" required placeholder="Enter full name">
+        </div>
+        
+        <div class="form-group">
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email" placeholder="Enter email address">
+        </div>
+        
+        <div class="form-group">
+            <label for="role">Role *</label>
+            <select id="role" name="role" required>
+                <option value="">Select Role</option>
+                <option value="admin">Admin</option>
+                <option value="teacher">Teacher</option>
+                <option value="parent">Parent</option>
+                <option value="student">Student</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="school_id">School</label>
+            <select id="school_id" name="school_id">
+                <option value="">No School (for superadmins)</option>
+                {% for school in schools %}
+                <option value="{{ school.id }}">{{ school.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="login_code">Login Code *</label>
+            <input type="text" id="login_code" name="login_code" required placeholder="Enter unique login code">
+        </div>
+        
+        <div class="form-group">
+            <label for="password">Password *</label>
+            <input type="password" id="password" name="password" required placeholder="Enter password">
+        </div>
+        
+        <div class="form-actions">
+            <a href="{{ url_for('superadmin_users') }}" class="btn btn-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary">Create User</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

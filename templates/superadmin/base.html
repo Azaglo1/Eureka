@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{% block title %}Super Admin - EUREKA{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+    <link rel="icon" href="{{ url_for('static', filename='favicon.png') }}" type="image/x-icon">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+            min-height: 100vh;
+            margin: 0;
+        }
+        .superadmin-layout {
+            display: flex;
+            min-height: 100vh;
+        }
+        .superadmin-sidebar {
+            width: 260px;
+            background: rgba(15, 12, 41, 0.95);
+            color: white;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+        }
+        .superadmin-sidebar-header {
+            margin-bottom: 2rem;
+        }
+        .superadmin-sidebar-header h2 {
+            margin: 0;
+            color: #e94560;
+        }
+        .superadmin-nav {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        .superadmin-nav a {
+            color: white;
+            text-decoration: none;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            transition: background 0.2s;
+        }
+        .superadmin-nav a:hover {
+            background: rgba(233, 69, 96, 0.2);
+        }
+        .superadmin-nav a.active {
+            background: #e94560;
+        }
+        .superadmin-content {
+            flex: 1;
+            padding: 2rem;
+            overflow-y: auto;
+        }
+        .superadmin-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .superadmin-header h1 {
+            margin: 0;
+            color: white;
+        }
+        .superadmin-header-left {
+            display: flex;
+            align-items: center;
+            min-width: 0;
+        }
+        .superadmin-header h1 {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .superadmin-mobile-menu-btn {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            width: 42px;
+            height: 42px;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 10px;
+            background: rgba(255,255,255,0.08);
+            color: white;
+            cursor: pointer;
+            margin-right: 0.75rem;
+        }
+        .superadmin-mobile-menu-btn:hover {
+            background: rgba(233, 69, 96, 0.25);
+        }
+        .superadmin-user {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            color: white;
+        }
+        .superadmin-user-badge {
+            background: #e94560;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-weight: 600;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        .stat-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-align: center;
+            color: white;
+        }
+        .stat-card.primary {
+            background: linear-gradient(135deg, #e94560 0%, #ff6b6b 100%);
+        }
+        .stat-card.success {
+            background: linear-gradient(135deg, #10b981 0%, #34d399 100%);
+        }
+        .stat-card.info {
+            background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%);
+        }
+        .stat-card.warning {
+            background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%);
+        }
+        .stat-card h2 {
+            margin: 0;
+            font-size: 2rem;
+        }
+        .stat-card p {
+            margin: 0.5rem 0 0;
+            opacity: 0.9;
+        }
+        .portal-section {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        .section-header h2 {
+            margin: 0;
+            color: white;
+        }
+        .actions-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+        }
+        .action-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-align: center;
+            color: white;
+            text-decoration: none;
+            transition: transform 0.2s, background 0.2s;
+        }
+        .action-card:hover {
+            transform: translateY(-2px);
+            background: rgba(233, 69, 96, 0.2);
+        }
+        .action-card span {
+            display: block;
+            margin-top: 0.5rem;
+        }
+        .table-container {
+            overflow-x: auto;
+        }
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            color: white;
+        }
+        .data-table th, .data-table td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .data-table th {
+            background: rgba(255,255,255,0.1);
+        }
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 0.875rem;
+            display: inline-block;
+        }
+        .btn-primary {
+            background: #e94560;
+            color: white;
+        }
+        .btn-secondary {
+            background: rgba(255,255,255,0.2);
+            color: white;
+        }
+        .btn-warning {
+            background: #f59e0b;
+            color: white;
+        }
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+        .btn-info {
+            background: #3b82f6;
+            color: white;
+        }
+        .btn-outline-primary {
+            background: transparent;
+            border: 1px solid var(--primary-500);
+            color: var(--primary-500);
+        }
+        .btn-outline-primary:hover {
+            background: var(--primary-500);
+            color: white;
+        }
+        .btn-outline-secondary {
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.3);
+            color: white;
+        }
+        .btn-outline-secondary:hover {
+            background: rgba(255,255,255,0.1);
+            border-color: white;
+        }
+        .btn-sm {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.75rem;
+        }
+        .role-badge {
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .role-badge.admin { background: #3b82f6; color: white; }
+        .role-badge.teacher { background: #10b981; color: white; }
+        .role-badge.parent { background: #f59e0b; color: white; }
+        .role-badge.student { background: #8b5cf6; color: white; }
+        .deleted-badge {
+            display: inline-block;
+            padding: 0.25rem 0.6rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            background: #ef4444;
+            color: white;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .deleted-row {
+            opacity: 0.55;
+        }
+        .deleted-row td {
+            text-decoration: line-through;
+        }
+        .status {
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+        }
+        .status.active { background: #10b981; color: white; }
+        .status.inactive { background: #6b7280; color: white; }
+        .flash {
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border-radius: 8px;
+        }
+        .flash.success { background: #d1fae5; color: #065f46; }
+        .flash.danger { background: #fee2e2; color: #991b1b; }
+        .flash.warning { background: #fef3c7; color: #92400e; }
+        .form-container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: white;
+            font-weight: 500;
+        }
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 6px;
+            background: rgba(255,255,255,0.1);
+            color: white;
+        }
+        .form-group input::placeholder, .form-group textarea::placeholder {
+            color: rgba(255,255,255,0.5);
+        }
+        .form-actions {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        .detail-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+        .detail-item {
+            background: rgba(255,255,255,0.05);
+            padding: 1rem;
+            border-radius: 8px;
+        }
+        .detail-item .label {
+            font-size: 0.75rem;
+            color: rgba(255,255,255,0.7);
+            text-transform: uppercase;
+        }
+        .detail-item .value {
+            color: white;
+            font-weight: 500;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                overflow-x: hidden;
+            }
+
+            .superadmin-layout {
+                position: relative;
+                min-height: 100vh;
+            }
+
+            .superadmin-sidebar {
+                position: fixed;
+                top: 0;
+                left: -280px;
+                z-index: 1000;
+                width: 280px;
+                height: 100vh;
+                min-width: 0;
+                padding: 1rem;
+                box-sizing: border-box;
+                overflow-y: auto;
+                transition: transform 0.25s ease;
+                box-shadow: 16px 0 30px rgba(0, 0, 0, 0.35);
+            }
+
+            .superadmin-sidebar.open {
+                transform: translateX(280px);
+            }
+
+            .superadmin-sidebar-header {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 1rem;
+                margin-bottom: 1.25rem;
+            }
+
+            .superadmin-sidebar-header h2 {
+                margin: 0;
+                font-size: 1.15rem;
+            }
+
+            .superadmin-nav {
+                display: flex;
+                flex-direction: column;
+                gap: 0.35rem;
+            }
+
+            .superadmin-nav a {
+                text-align: left;
+                padding: 0.8rem 0.9rem;
+                font-size: 0.95rem;
+                border-radius: 10px;
+            }
+
+            .superadmin-content {
+                padding: 1rem;
+                box-sizing: border-box;
+                overflow-x: hidden;
+            }
+
+            .superadmin-header {
+                position: sticky;
+                top: 0;
+                z-index: 900;
+                align-items: center;
+                margin-bottom: 1rem;
+                padding: 0.75rem 0;
+                background: rgba(15, 12, 41, 0.96);
+                backdrop-filter: blur(12px);
+                border-bottom: 1px solid rgba(255,255,255,0.12);
+            }
+
+            .superadmin-header h1 {
+                margin: 0;
+                font-size: 1.25rem;
+            }
+
+            .superadmin-mobile-menu-btn {
+                display: inline-flex;
+            }
+
+            .superadmin-user {
+                align-self: center;
+                margin-left: auto;
+            }
+
+            .superadmin-user-badge {
+                max-width: 160px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .superadmin-menu-overlay {
+                display: none;
+                position: fixed;
+                inset: 0;
+                z-index: 999;
+                background: rgba(0, 0, 0, 0.45);
+            }
+
+            .superadmin-menu-overlay.open {
+                display: block;
+            }
+
+            .stats-grid,
+            .actions-grid,
+            .detail-grid {
+                grid-template-columns: 1fr;
+                gap: 0.75rem;
+            }
+
+            .stat-card {
+                padding: 1rem;
+            }
+
+            .portal-section {
+                padding: 1rem;
+                margin-bottom: 1rem;
+                border-radius: 10px;
+            }
+
+            .section-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.75rem;
+                margin-bottom: 0.75rem;
+            }
+
+            .section-header h2 {
+                font-size: 1.125rem;
+            }
+
+            .data-table {
+                min-width: 700px;
+            }
+
+            .table-container {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                margin: 0 -1rem;
+                padding: 0 1rem;
+            }
+
+            .form-container {
+                max-width: 100%;
+                padding: 0;
+            }
+
+            .form-group {
+                margin-bottom: 0.75rem;
+            }
+
+            .form-group input,
+            .form-group select,
+            .form-group textarea {
+                font-size: 0.9rem;
+                padding: 0.7rem;
+            }
+
+            .form-actions {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+
+            .form-actions .btn,
+            .btn {
+                width: 100%;
+                text-align: center;
+                box-sizing: border-box;
+            }
+
+            .action-card {
+                padding: 1rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .superadmin-sidebar {
+                width: 82vw;
+                padding: 0.75rem;
+            }
+
+            .superadmin-sidebar.open {
+                transform: translateX(82vw);
+            }
+
+            .superadmin-nav {
+                gap: 0.25rem;
+            }
+
+            .superadmin-content {
+                padding: 0.75rem;
+            }
+
+            .superadmin-header h1 {
+                font-size: 1.15rem;
+            }
+
+            .superadmin-user-badge {
+                padding: 0.35rem 0.75rem;
+                font-size: 0.8rem;
+            }
+
+            .portal-section {
+                padding: 0.75rem;
+            }
+
+            .stat-card h2 {
+                font-size: 1.5rem;
+            }
+
+            .btn-sm {
+                padding: 0.35rem 0.5rem;
+                font-size: 0.7rem;
+            }
+
+            .flash {
+                padding: 0.75rem;
+                font-size: 0.875rem;
+            }
+
+            .data-table th,
+            .data-table td {
+                padding: 0.5rem;
+                font-size: 0.8rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="superadmin-menu-overlay" id="superadminMenuOverlay"></div>
+    <div class="superadmin-layout">
+        <aside class="superadmin-sidebar">
+            <div class="superadmin-sidebar-header">
+                <h2>👑 Super Admin</h2>
+            </div>
+            <nav class="superadmin-nav">
+                <a href="{{ url_for('superadmin_panel') }}" class="{% if request.path == '/superadmin' %}active{% endif %}">
+                    Dashboard
+                </a>
+                <a href="{{ url_for('superadmin_schools') }}" class="{% if 'schools' in request.path or 'school_portal' in request.path %}active{% endif %}">
+                    Schools
+                </a>
+                <a href="{{ url_for('superadmin_users') }}" class="{% if 'users' in request.path %}active{% endif %}">
+                    Users
+                </a>
+                <a href="{{ url_for('superadmin_statistics') }}" class="{% if 'statistics' in request.path %}active{% endif %}">
+                    Statistics
+                </a>
+                <a href="/" style="border-top: 1px solid rgba(255,255,255,0.1); margin-top: 0.5rem; padding-top: 0.75rem;">
+                    ← Back to Main Portal
+                </a>
+                <a href="{{ url_for('superadmin_logout') }}">
+                    Logout
+                </a>
+            </nav>
+        </aside>
+        
+        <main class="superadmin-content">
+            <header class="superadmin-header">
+                <div class="superadmin-header-left">
+                    <button class="superadmin-mobile-menu-btn" id="superadminMobileMenuBtn" aria-label="Toggle menu">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="3" y1="12" x2="21" y2="12"></line>
+                            <line x1="3" y1="6" x2="21" y2="6"></line>
+                            <line x1="3" y1="18" x2="21" y2="18"></line>
+                        </svg>
+                    </button>
+                    <h1>{% block page_title %}Dashboard{% endblock %}</h1>
+                </div>
+                <div class="superadmin-user">
+                    <span class="superadmin-user-badge">{{ session.superadmin_name }}</span>
+                </div>
+            </header>
+            
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="flash {{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+    <script>
+        const superadminMobileMenuBtn = document.getElementById('superadminMobileMenuBtn');
+        const superadminSidebar = document.querySelector('.superadmin-sidebar');
+        const superadminMenuOverlay = document.getElementById('superadminMenuOverlay');
+
+        function closeSuperadminMenu() {
+            if (superadminSidebar) superadminSidebar.classList.remove('open');
+            if (superadminMenuOverlay) superadminMenuOverlay.classList.remove('open');
+        }
+
+        if (superadminMobileMenuBtn && superadminSidebar && superadminMenuOverlay) {
+            superadminMobileMenuBtn.addEventListener('click', function() {
+                const isOpen = superadminSidebar.classList.toggle('open');
+                superadminMenuOverlay.classList.toggle('open', isOpen);
+            });
+
+            superadminMenuOverlay.addEventListener('click', closeSuperadminMenu);
+
+            document.addEventListener('keydown', function(event) {
+                if (event.key === 'Escape') closeSuperadminMenu();
+            });
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,240 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - Eureka{% endblock %}
+{% block page_title %}Welcome back, {{ session.user_name }}{% endblock %}
+{% block content %}
+<div class="card">
+    <div class="dashboard-header">
+        <div>
+            {% if session.role == 'superadmin' %}
+                <h1>👑 System Overview, {{ session.user_name }}</h1>
+                <p>Complete control over all schools and users in the system</p>
+            {% elif session.role == 'admin' %}
+                <h1>⚡ Admin Dashboard, {{ session.user_name }}</h1>
+                <p>Manage your school's operations and monitor performance</p>
+            {% elif session.role == 'teacher' %}
+                <h1>📚 Teacher Portal, {{ session.user_name }}</h1>
+                <p>Track your classes, attendance, and student progress</p>
+            {% else %}
+                <h1>Welcome back, {{ session.user_name }}</h1>
+                <p>Here's your overview for {{ session.school_name }}</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Key Metrics -->
+    <div class="stats-grid">
+        {% if session.role == 'superadmin' %}
+            <article class="stat-card primary">
+                <h2>{{ student_count }}</h2>
+                <p>🎓 Total Students</p>
+            </article>
+            <article class="stat-card warning">
+                <h2>{{ school_count if school_count else 'N/A' }}</h2>
+                <p>🏫 Schools Managed</p>
+            </article>
+            <article class="stat-card danger">
+                <h2>{{ user_count if user_count else 'N/A' }}</h2>
+                <p>👥 Total Users</p>
+            </article>
+        {% elif session.role == 'admin' %}
+            <article class="stat-card primary">
+                <h2>{{ student_count }}</h2>
+                <p>👨‍🎓 Enrolled Students</p>
+            </article>
+            <article class="stat-card warning">
+                <h2>{{ teacher_count if teacher_count else '0' }}</h2>
+                <p>📚 Teaching Staff</p>
+            </article>
+            <article class="stat-card danger">
+                <h2>{{ owing_count }}</h2>
+                <p>⚠️ Students with Outstanding Fees</p>
+            </article>
+        {% elif session.role == 'teacher' %}
+            <article class="stat-card primary">
+                <h2>{{ student_count }}</h2>
+                <p>📋 Students in Your Classes</p>
+            </article>
+            <article class="stat-card warning">
+                <h2>{{ classes_count if classes_count else '0' }}</h2>
+                <p>🏫 Classes Assigned</p>
+            </article>
+            <article class="stat-card success">
+                <h2>{{ attendance_rate if attendance_rate else '0' }}%</h2>
+                <p>📊 Average Attendance Rate</p>
+            </article>
+        {% else %}
+            <article class="stat-card primary">
+                <h2>{{ student_count }}</h2>
+                <p>Students in School</p>
+            </article>
+        {% endif %}
+    </div>
+
+    <!-- Quick Actions -->
+    <section>
+        <h2>
+            {% if session.role == 'superadmin' %}🛡️ System Controls{% elif session.role == 'admin' %}⚡ Admin Tools{% elif session.role == 'teacher' %}📖 Teacher Resources{% elif session.role == 'parent' %}👨‍👩‍👧‍👦 Parent Center{% else %}Quick Actions{% endif %}
+        </h2>
+        <div class="quick-actions">
+            {% if session.role == 'superadmin' %}
+                <a href="{{ superadmin_url }}/superadmin" class="action-card" target="_blank">
+                    <div class="action-icon">🏰</div>
+                    <div>
+                        <h3>System Management</h3>
+                        <p>Oversee all schools and platform settings</p>
+                    </div>
+                </a>
+                <a href="{{ url_for('admin_panel') }}" class="action-card">
+                    <div class="action-icon">🏫</div>
+                    <div>
+                        <h3>School Admins</h3>
+                        <p>Manage school-level administrators</p>
+                    </div>
+                </a>
+                <a href="{{ url_for('messages') }}" class="action-card">
+                    <div class="action-icon">📢</div>
+                    <div>
+                        <h3>System Messages</h3>
+                        <p>Broadcast announcements school-wide</p>
+                    </div>
+                </a>
+            {% elif session.role == 'admin' %}
+                <a href="{{ url_for('attendance') }}" class="action-card">
+                    <div class="action-icon">✅</div>
+                    <div>
+                        <h3>Attendance Reports</h3>
+                        <p>View daily and weekly attendance</p>
+                    </div>
+                </a>
+                <a href="{{ url_for('grades') }}" class="action-card">
+                    <div class="action-icon">📊</div>
+                    <div>
+                        <h3>Academic Records</h3>
+                        <p>Monitor student grades and rankings</p>
+                    </div>
+                </a>
+                <a href="{{ url_for('finance') }}" class="action-card">
+                    <div class="action-icon">💰</div>
+                    <div>
+                        <h3>Fee Management</h3>
+                        <p>Track billing and payment status</p>
+                    </div>
+                </a>
+            {% elif session.role == 'teacher' %}
+                <a href="{{ url_for('attendance') }}" class="action-card">
+                    <div class="action-icon">✓</div>
+                    <div>
+                        <h3>Mark Attendance</h3>
+                        <p>Record daily student attendance</p>
+                    </div>
+                </a>
+                <a href="{{ url_for('grades') }}" class="action-card">
+                    <div class="action-icon">📝</div>
+                    <div>
+                        <h3>Record Grades</h3>
+                        <p>Enter assessment scores</p>
+                    </div>
+                </a>
+                <a href="{{ url_for('assignments') }}" class="action-card">
+                    <div class="action-icon">📋</div>
+                    <div>
+                        <h3>Assignments</h3>
+                        <p>Create and grade homework</p>
+                    </div>
+                </a>
+                <a href="{{ url_for('teaching_plans') }}" class="action-card">
+                    <div class="action-icon">📖</div>
+                    <div>
+                        <h3>Teaching Plans</h3>
+                        <p>View and create lesson plans</p>
+                    </div>
+                </a>
+            {% elif session.role == 'parent' %}
+                <a href="{{ url_for('parent_dashboard') }}" class="action-card">
+                    <div class="action-icon">👨‍👩‍👧‍👦</div>
+                    <div>
+                        <h3>My Children</h3>
+                        <p>View all enrolled children</p>
+                    </div>
+                </a>
+                <a href="{{ url_for('attendance') }}" class="action-card">
+                    <div class="action-icon">📅</div>
+                    <div>
+                        <h3>Attendance History</h3>
+                        <p>Check your child's attendance</p>
+                    </div>
+                </a>
+                <a href="{{ url_for('grades') }}" class="action-card">
+                    <div class="action-icon">🏆</div>
+                    <div>
+                        <h3>Academic Progress</h3>
+                        <p>View grades and performance</p>
+                    </div>
+                </a>
+                <a href="{{ url_for('messages') }}" class="action-card">
+                    <div class="action-icon">💬</div>
+                    <div>
+                        <h3>Messages</h3>
+                        <p>Communicate with teachers</p>
+                    </div>
+                </a>
+            {% else %}
+                <a href="{{ url_for('attendance') }}" class="action-card">
+                    <div class="action-icon">✓</div>
+                    <div>
+                        <h3>Mark Attendance</h3>
+                        <p>Record student attendance</p>
+                    </div>
+                </a>
+                <a href="{{ url_for('grades') }}" class="action-card">
+                    <div class="action-icon">📝</div>
+                    <div>
+                        <h3>Record Grades</h3>
+                        <p>Enter assessment scores</p>
+                    </div>
+                </a>
+                <a href="{{ url_for('timetable') }}" class="action-card">
+                    <div class="action-icon">⏰</div>
+                    <div>
+                        <h3>Timetable</h3>
+                        <p>View class schedule</p>
+                    </div>
+                </a>
+            {% endif %}
+        </div>
+    </section>
+
+    <!-- Recent Students -->
+    {% if recent_students %}
+    <section>
+        <h2>
+            {% if session.role == 'superadmin' %}👑 All Schools - New Enrollments{% elif session.role == 'admin' %}📝 New Student Registrations{% elif session.role == 'teacher' %}👨‍🎓 Your Students{% else %}Student Directory{% endif %}
+        </h2>
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Student Name</th>
+                        <th>Student Number</th>
+                        <th>Grade</th>
+                        <th>Section</th>
+                        <th>Email</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for student in recent_students %}
+                    <tr>
+                        <td>{{ student.name }}</td>
+                        <td>{{ student.student_number }}</td>
+                        <td>{{ student.grade }}</td>
+                        <td>{{ student.section }}</td>
+                        <td>{{ student.email or '-' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+    {% endif %}
+</div>
+{% endblock %}

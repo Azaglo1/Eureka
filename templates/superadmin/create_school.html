@@ -1,0 +1,119 @@
+{% extends "superadmin/base.html" %}
+{% block title %}Create School - Super Admin{% endblock %}
+{% block page_title %}Create New School{% endblock %}
+{% block content %}
+<div class="portal-section">
+    <div class="section-header">
+        <a href="{{ url_for('superadmin_schools') }}" class="btn btn-outline-secondary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="19" y1="12" x2="5" y2="12"/>
+                <polyline points="12 19 5 12 12 5"/>
+            </svg>
+            Back to Schools
+        </a>
+    </div>
+    
+    <form method="post" class="form-container">
+        <div class="form-group">
+            <label for="name">School Name *</label>
+            <input type="text" id="name" name="name" required placeholder="Enter school name">
+        </div>
+        
+        <div class="form-group">
+            <label for="school_code">School Code *</label>
+            <input type="text" id="school_code" name="school_code" required placeholder="Enter unique school code (e.g., SCHOOL001)">
+        </div>
+        
+        <div class="form-group">
+            <label for="description">Description</label>
+            <textarea id="description" name="description" rows="3" placeholder="Enter school description (optional)"></textarea>
+        </div>
+        
+        <div class="form-group">
+            <label for="school_email">School Email</label>
+            <input type="email" id="school_email" name="school_email" placeholder="info@school.edu.gh">
+        </div>
+        
+        <div class="form-group">
+            <label for="school_phone">School Phone</label>
+            <input type="text" id="school_phone" name="school_phone" placeholder="+233...">
+        </div>
+        
+        <div class="form-group">
+            <label for="school_address">School Address</label>
+            <input type="text" id="school_address" name="school_address" placeholder="Enter school address">
+        </div>
+        
+        <div class="form-group">
+            <label for="school_website">School Website</label>
+            <input type="text" id="school_website" name="school_website" placeholder="www.school.edu.gh">
+        </div>
+        
+        <div class="form-section-title">Email Configuration</div>
+        
+        <div class="form-group">
+            <label for="smtp_server">SMTP Server</label>
+            <input type="text" id="smtp_server" name="smtp_server" placeholder="smtp.gmail.com">
+        </div>
+        
+        <div class="form-group">
+            <label for="smtp_port">SMTP Port</label>
+            <input type="number" id="smtp_port" name="smtp_port" placeholder="587">
+        </div>
+        
+        <div class="form-group">
+            <label for="smtp_email">SMTP Email</label>
+            <input type="email" id="smtp_email" name="smtp_email" placeholder="notifications@school.edu.gh">
+        </div>
+        
+        <div class="form-group">
+            <label for="smtp_password">SMTP Password</label>
+            <input type="password" id="smtp_password" name="smtp_password" placeholder="Enter SMTP password">
+        </div>
+        
+        <div class="form-group">
+            <label for="sender_name">Sender Name</label>
+            <input type="text" id="sender_name" name="sender_name" placeholder="School Administration">
+        </div>
+        
+        <div class="form-section-title">SMS Configuration (Twilio)</div>
+        
+        <div class="form-group">
+            <label for="twilio_account_sid">Twilio Account SID</label>
+            <input type="text" id="twilio_account_sid" name="twilio_account_sid" placeholder="AC...">
+        </div>
+        
+        <div class="form-group">
+            <label for="twilio_auth_token">Twilio Auth Token</label>
+            <input type="password" id="twilio_auth_token" name="twilio_auth_token" placeholder="Enter auth token">
+        </div>
+        
+        <div class="form-group">
+            <label for="twilio_from_number">Twilio Phone Number</label>
+            <input type="text" id="twilio_from_number" name="twilio_from_number" placeholder="+1...">
+        </div>
+        
+        <div class="form-group">
+            <label for="twilio_messaging_service_sid">Twilio Messaging Service SID</label>
+            <input type="text" id="twilio_messaging_service_sid" name="twilio_messaging_service_sid" placeholder="MG...">
+        </div>
+        
+        <div class="form-section-title">WhatsApp Configuration</div>
+        
+        <div class="form-group">
+            <label for="whatsapp_access_token">WhatsApp Access Token</label>
+            <input type="password" id="whatsapp_access_token" name="whatsapp_access_token" placeholder="Enter access token">
+        </div>
+        
+        <div class="form-group">
+            <label for="whatsapp_phone_number_id">WhatsApp Phone Number ID</label>
+            <input type="text" id="whatsapp_phone_number_id" name="whatsapp_phone_number_id" placeholder="Phone Number ID">
+        </div>
+        
+        <div class="form-actions">
+            <a href="{{ url_for('superadmin_schools') }}" class="btn btn-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary">Create School</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

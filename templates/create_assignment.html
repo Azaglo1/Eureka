@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Create Assignment - {{ session.school_name }}{% endblock %}
+{% block page_title %}Create Assignment{% endblock %}
+{% block content %}
+<a href="{{ url_for('assignments') }}" class="secondary-btn" style="margin-bottom:1rem;">← Back to Assignments</a>
+<form method="post" enctype="multipart/form-data" class="form-section">
+  <legend>Assignment Details</legend>
+  <div class="form-grid">
+    <div class="form-field full-width"><label>Title *</label><input name="title" required></div>
+    <div class="form-field full-width"><label>Description</label><textarea name="description" rows="3"></textarea></div>
+    <div class="form-field"><label>Subject *</label>
+      <select name="subject" required>
+        <option value="">Select subject...</option>
+        {% for s in school_subjects %}<option value="{{ s.name }}">{{ s.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="form-field"><label>Grade</label>
+      <select name="grade"><option value="">All Grades</option>{% for g in grades %}<option value="{{ g.name }}">{{ g.name }}</option>{% endfor %}</select>
+    </div>
+    <div class="form-field"><label>Section</label>
+      <select name="section"><option value="">All Sections</option>{% for s in sections %}<option value="{{ s.name }}">{{ s.name }}</option>{% endfor %}</select>
+    </div>
+    <div class="form-field"><label>Due Date *</label><input name="due_date" type="date" required></div>
+    <div class="form-field"><label>Delivery Method</label>
+      <select name="delivery_method">
+        <option value="app">App Only</option>
+        <option value="email">Email</option>
+        <option value="whatsapp">WhatsApp</option>
+        <option value="all">All (App + Email + WhatsApp)</option>
+      </select>
+    </div>
+    <div class="form-field full-width"><label>Attachment</label><input type="file" name="assignment_file"></div>
+  </div>
+  <div class="form-actions">
+    <button type="submit" class="primary-btn">Create Assignment</button>
+    <a href="{{ url_for('assignments') }}" class="secondary-btn">Cancel</a>
+  </div>
+</form>
+{% endblock %}

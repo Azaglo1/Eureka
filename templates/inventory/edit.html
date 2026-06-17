@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}Edit Inventory Item - EUREKA{% endblock %}
+{% block page_title %}Edit Inventory Item{% endblock %}
+{% block content %}
+<div class="inventory-dashboard">
+
+    <!-- ── Page Header ── -->
+    <div class="page-header-section inventory-header">
+        <div class="header-content">
+            <div>
+                <h1>✏ Edit Inventory Item</h1>
+                <p>Update the details for "{{ item.name }}"</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Back Button ── -->
+    <a href="{{ url_for('inventory.inventory') }}" class="back-button">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M19 12H5"/>
+            <polyline points="12 19 5 12 12 5"/>
+        </svg>
+        Back to Inventory
+    </a>
+
+    <!-- ── Edit Item Form -->
+    <div class="card">
+        <div class="card-header">
+            <div>
+                <h2 class="card-title">Item Details</h2>
+                <p class="card-subtitle">Update the information for this inventory item</p>
+            </div>
+        </div>
+        <form method="post" action="{{ url_for('inventory.edit_inventory_item', item_id=item.id) }}" class="inventory-form">
+            <div class="form-grid">
+                <div class="form-field">
+                    <label for="item_name">Item Name *</label>
+                    <input id="item_name" name="name" type="text" value="{{ item.name }}" required />
+                </div>
+                <div class="form-field">
+                    <label for="description">Description</label>
+                    <input id="description" name="description" type="text" value="{{ item.description or '' }}" />
+                </div>
+                <div class="form-field">
+                    <label for="quantity">Quantity *</label>
+                    <input id="quantity" name="quantity" type="number" min="0" value="{{ item.quantity }}" required />
+                </div>
+            </div>
+            <button type="submit" class="primary-btn">Update Item</button>
+        </form>
+    </div>
+
+</div><!-- /.inventory-dashboard -->
+
+<style>
+/* ── Layout ── */
+.inventory-dashboard { max-width: 1400px; margin: 0 auto; }
+
+.inventory-header {
+    background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%);
+}
+.inventory-header h1 { color: white; font-size: 2rem; font-weight: 800; margin: 0 0 .4rem 0; }
+.inventory-header p  { color: rgba(255,255,255,.88); margin: 0; }
+
+/* ── Form ── */
+.inventory-form .form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+.form-field-wide { grid-column: 1 / -1; }
+.form-field { display: flex; flex-direction: column; gap: .4rem; }
+.form-field label { color: var(--neutral-700); font-size: .85rem; font-weight: 700; }
+.form-field input,
+.form-field select,
+.form-field textarea {
+    background: white;
+    border: 1px solid var(--neutral-300);
+    border-radius: var(--radius);
+    color: var(--neutral-800);
+    font-size: .9rem;
+    padding: .65rem .85rem;
+}
+.form-field textarea { resize: vertical; min-height: 60px; }
+
+/* ── Buttons ── */
+.primary-btn {
+    background: var(--primary-500);
+    color: white;
+    border: 0;
+    border-radius: var(--radius);
+    padding: .7rem 1.4rem;
+    font-weight: 700;
+    cursor: pointer;
+    font-size: .9rem;
+}
+.primary-btn:hover { background: var(--primary-600); }
+.back-button {
+    display: inline-flex;
+    align-items: center;
+    gap: .5rem;
+    color: var(--neutral-600);
+    font-size: .9rem;
+    font-weight: 600;
+    text-decoration: none;
+    margin-bottom: 1.5rem;
+}
+.back-button:hover { color: var(--neutral-900); }
+.back-button svg { flex-shrink: 0; }
+</style>
+{% endblock %}

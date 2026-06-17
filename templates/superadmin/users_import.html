@@ -1,0 +1,166 @@
+{% extends "superadmin/base.html" %}
+{% block title %}Bulk Import Users - Super Admin{% endblock %}
+{% block page_title %}Bulk Import Users{% endblock %}
+
+{% block content %}
+<div class="portal-section">
+    <div class="section-header">
+        <h2>📥 Bulk Import Users from CSV</h2>
+        <a href="{{ url_for('superadmin_users') }}" class="btn btn-secondary">← Back to Users</a>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <h3>Instructions</h3>
+            <ol>
+                <li>Download the CSV template using the button below</li>
+                <li>Fill in the user data following the format in the example rows</li>
+                <li><strong>Required fields:</strong> name, email, role, login_code</li>
+                <li><strong>Optional fields:</strong> school_id (required for admin/teacher/parent/student), password (will be generated if empty)</li>
+                <li>For students: also include student_number, grade, section</li>
+                <li>Maximum file size: 5MB, up to 1000 users per import</li>
+            </ol>
+
+            <div class="alert alert-info">
+                <strong>Note:</strong>
+                <ul>
+                    <li>Login codes must be unique across all users</li>
+                    <li>School IDs must exist in the schools table</li>
+                    <li>Student numbers must be unique</li>
+                    <li>Valid roles: superadmin, admin, teacher, parent, student</li>
+                </ul>
+            </div>
+
+            <div style="margin: 20px 0;">
+                <a href="{{ url_for('download_user_template') }}" class="btn btn-outline-primary">
+                    📥 Download CSV Template
+                </a>
+            </div>
+
+            <hr>
+
+            <h3>Upload CSV File</h3>
+            <form method="POST" action="{{ url_for('superadmin_import_users') }}" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label for="csv_file">Select CSV File</label>
+                    <input type="file" name="csv_file" id="csv_file" accept=".csv" required class="form-control">
+                </div>
+                <div class="form-group" style="margin-top: 15px;">
+                    <button type="submit" class="btn btn-primary">Upload & Preview</button>
+                    <button type="reset" class="btn btn-secondary">Clear</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if preview_data %}
+    <div class="card" style="margin-top: 20px;">
+        <div class="card-body">
+            <h3>Preview ({{ preview_data|length }} users)</h3>
+            <div style="overflow-x: auto;">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Role</th>
+                            <th>Login Code</th>
+                            <th>School ID</th>
+                            <th>Student #</th>
+                            <th>Grade</th>
+                            <th>Section</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in preview_data %}
+                        <tr class="{% if user.error %}table-danger{% elif user.warning %}table-warning{% else %}table-success{% endif %}">
+                            <td>{{ loop.index }}</td>
+                            <td>{{ user.name }}</td>
+                            <td>{{ user.email or '—' }}</td>
+                            <td><span class="badge badge-role">{{ user.role }}</span></td>
+                            <td>{{ user.login_code }}</td>
+                            <td>{{ user.school_id or '—' }}</td>
+                            <td>{{ user.student_number or '—' }}</td>
+                            <td>{{ user.grade or '—' }}</td>
+                            <td>{{ user.section or '—' }}</td>
+                            <td>
+                                {% if user.error %}
+                                    <span class="text-danger">{{ user.error }}</span>
+                                {% elif user.warning %}
+                                    <span class="text-warning">{{ user.warning }}</span>
+                                {% else %}
+                                    <span class="text-success">✓ OK</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            {% if errors %}
+            <div class="alert alert-danger" style="margin-top: 15px;">
+                <h4>⚠️ Errors ({{ errors|length }})</h4>
+                <ul>
+                    {% for error in errors %}
+                    <li>{{ error }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+
+            {% if warnings %}
+            <div class="alert alert-warning" style="margin-top: 15px;">
+                <h4>⚠️ Warnings ({{ warnings|length }})</h4>
+                <ul>
+                    {% for warning in warnings %}
+                    <li>{{ warning }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+
+            {% if not errors %}
+            <div class="alert alert-success" style="margin-top: 15px;">
+                <h4>✅ Ready to Import</h4>
+                <p>All {{ preview_data|length }} users passed validation. Click "Confirm Import" to create these users.</p>
+                <form method="POST" action="{{ url_for('superadmin_import_users') }}" style="display: inline;">
+                    <input type="hidden" name="confirm" value="1">
+                    <button type="submit" class="btn btn-success">✓ Confirm Import</button>
+                    <a href="{{ url_for('superadmin_import_users') }}" class="btn btn-secondary">Cancel</a>
+                </form>
+            </div>
+            {% else %}
+            <div class="alert alert-danger" style="margin-top: 15px;">
+                <p>Please fix the errors in your CSV file and try again.</p>
+                <a href="{{ url_for('superadmin_import_users') }}" class="btn btn-secondary">← Edit CSV</a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% if import_result %}
+    <div class="card" style="margin-top: 20px;">
+        <div class="card-body">
+            <h3>Import Results</h3>
+            <div class="alert alert-info">
+                <strong>Successfully imported:</strong> {{ import_result.success }} users<br>
+                <strong>Failed:</strong> {{ import_result.failed }} users
+            </div>
+            {% if import_result.failed > 0 %}
+                <h4>Errors:</h4>
+                <ul>
+                    {% for err in import_result.errors %}
+                    <li>{{ err }}</li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+            <a href="{{ url_for('superadmin_users') }}" class="btn btn-primary">View All Users</a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

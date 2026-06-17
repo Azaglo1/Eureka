@@ -1,0 +1,384 @@
+{% extends "base.html" %}
+{% block title %}Weekly Attendance Register{% endblock %}
+{% block page_title %}Weekly Attendance Register{% endblock %}
+{% block content %}
+<div class="attendance-dashboard">
+    <div class="register-header">
+        <div class="register-row">
+            <div class="form-field" style="min-width: 180px; margin-right: 1rem;">
+                <label for="gradeFilter" class="register-label">Filter by Class/Grade</label>
+                <select id="gradeFilter" class="form-select" onchange="applyFilters()">
+                    <option value="">All Grades</option>
+                    {% for grade in grades %}
+                    <option value="{{ grade.grade }}" {% if request.args.get('grade', '') == grade.grade %}selected{% endif %}>{{ grade.grade }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-field" style="min-width: 150px; margin-right: 1rem;">
+                <label for="sectionFilter" class="register-label">Filter by Section</label>
+                <select id="sectionFilter" class="form-select" onchange="applyFilters()">
+                    <option value="">All Sections</option>
+                    {% for section in sections %}
+                    <option value="{{ section.section }}" {% if request.args.get('section', '') == section.section %}selected{% endif %}>{{ section.section }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="register-field">
+                <span class="register-label">Name of School</span>
+                <span class="register-value">{{ school_name or 'School' }}</span>
+            </div>
+            <div class="register-field">
+                <span class="register-label">Class / Grade &amp; Stream</span>
+                <span class="register-value">{{ class_name }}</span>
+            </div>
+            <div class="register-field">
+                <span class="register-label">Academic Year &amp; Term</span>
+                <span class="register-value">{{ academic_year }} | {{ term }}</span>
+            </div>
+            <div class="register-field">
+                <span class="register-label">Class Teacher's Name</span>
+                <span class="register-value">{{ class_teacher }}</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="card attendance-card">
+        <div class="card-header register-card-header">
+            <h2 class="card-title">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="4" width="18" height="18" rx="2"/>
+                    <line x1="16" y1="2" x2="16" y2="6"/>
+                    <line x1="8" y1="2" x2="8" y2="6"/>
+                    <line x1="3" y1="10" x2="21" y2="10"/>
+                </svg>
+                Weekly Attendance Register
+            </h2>
+            <p class="card-subtitle">Week of {{ week_headers[0].label }} – {{ week_headers[-1].label }}</p>
+        </div>
+        <div class="register-week-nav">
+            <a href="{{ url_for('attendance', week_start=prev_week, grade=request.args.get('grade', ''), section=request.args.get('section', '')) }}" class="btn btn-outline-secondary btn-sm">Previous Week</a>
+            <a href="{{ url_for('attendance', week_start=next_week, grade=request.args.get('grade', ''), section=request.args.get('section', '')) }}" class="btn btn-outline-secondary btn-sm">Next Week</a>
+        </div>
+        <div class="table-wrapper">
+            <table class="attendance-table register-table">
+                <thead>
+                    <tr class="register-info-row">
+                        <th rowspan="2" class="col-sn">S/N</th>
+                        <th rowspan="2" class="col-name">Pupil's Name</th>
+                        <th rowspan="2" class="col-dob">Date of Birth / Age</th>
+                        {% for day in week_headers %}
+                            <th colspan="1" class="col-day" title="{{ day.date }}">{{ day.label }}</th>
+                        {% endfor %}
+                        <th rowspan="2" class="col-total">Weekly Totals<br><small>(P/T)</small></th>
+                        <th rowspan="2" class="col-total">Term Cumulative Total</th>
+                    </tr>
+                    <tr class="register-day-row">
+                        {% for day in week_headers %}
+                            <th class="col-day-sub">{{ day.label.split(' ')[0] }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for student in students %}
+                    <tr>
+                        <td class="center">{{ loop.index }}</td>
+                        <td class="left name-cell">
+                            {% set name_parts = student.name.split(' ') %}
+                            {% if name_parts|length > 1 %}
+                                {{ name_parts[-1] }} {{ name_parts[:-1]|join(' ') }}
+                            {% else %}
+                                {{ student.name }}
+                            {% endif %}
+                        </td>
+                        <td class="center dob-cell">
+                            {% if student.date_of_birth %}
+                                {{ student.date_of_birth }} <span class="age-badge">{{ student.age }}</span>
+                            {% endif %}
+                        </td>
+                        {% for day in week_headers %}
+                            {% set date_str = day.date %}
+                            <td class="center att-cell">
+                                <label class="att-check" title="Mark present">
+                                    <input type="checkbox" class="attendance-check attendance-check-am" data-student="{{ student.id }}" data-date="{{ date_str }}" data-session="AM" {% if is_present(student, date_str, 'AM') %}checked{% endif %}>
+                                    <span class="checkmark"></span>
+                                </label>
+                            </td>
+                        {% endfor %}
+                        <td class="center totals-cell">{{ week_present_count(student) }} / {{ week_dates|length }}</td>
+                        <td class="center totals-cell">{{ term_present_count(student) }} / {{ term_total_slots }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="register-footer-actions">
+            <button type="button" id="saveAttendanceBtn" class="btn btn-primary">
+                Save Attendance
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const saveBtn = document.getElementById('saveAttendanceBtn');
+    if (!saveBtn) return;
+
+    saveBtn.addEventListener('click', function() {
+        const entries = [];
+        const checks = document.querySelectorAll('.attendance-check');
+        checks.forEach(input => {
+            if (!input.checked) return;
+            entries.push({
+                student_id: input.getAttribute('data-student'),
+                date: input.getAttribute('data-date'),
+                session: input.getAttribute('data-session'),
+                status: 'present',
+            });
+        });
+
+        if (!entries.length) {
+            alert('Please mark at least one attendance before saving.');
+            return;
+        }
+
+        saveBtn.disabled = true;
+        fetch("{{ url_for('save_attendance') }}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ entries: entries }),
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data && data.success) {
+                window.location.reload();
+            } else {
+                alert('Failed to save attendance. Please try again.');
+            }
+        })
+        .catch(() => {
+            alert('Error saving attendance. Please try again.');
+        })
+        .finally(() => {
+            saveBtn.disabled = false;
+        });
+    });
+});
+
+function applyFilters() {
+    const grade = document.getElementById('gradeFilter').value;
+    const section = document.getElementById('sectionFilter').value;
+    const url = new URL(window.location.href);
+    // Preserve week_start if present
+    const weekStart = url.searchParams.get('week_start');
+    if (grade) {
+        url.searchParams.set('grade', grade);
+    } else {
+        url.searchParams.delete('grade');
+    }
+    if (section) {
+        url.searchParams.set('section', section);
+    } else {
+        url.searchParams.delete('section');
+    }
+    if (weekStart) {
+        url.searchParams.set('week_start', weekStart);
+    }
+    window.location.href = url.toString();
+}
+</script>
+<style>
+.attendance-dashboard {
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.register-header {
+    background: #fff;
+    border: 1px solid var(--neutral-300);
+    border-radius: 12px;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+}
+
+.register-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 1rem;
+}
+
+.register-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.register-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #6b7280;
+}
+
+.register-value {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #111827;
+}
+
+.register-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.register-week-nav {
+    display: flex;
+    gap: 0.5rem;
+    margin: 0.75rem 0 0;
+}
+
+.attendance-card {
+    margin: 0;
+}
+
+.register-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+}
+
+.register-table th,
+.register-table td {
+    border: 1px solid var(--neutral-300);
+    padding: 0.5rem;
+}
+
+.register-table thead th {
+    background: #111827;
+    color: #fff;
+    font-weight: 600;
+    text-align: center;
+}
+
+.register-table tbody tr:nth-child(even) {
+    background: #f9fafb;
+}
+
+.register-table tbody tr:hover {
+    background: #f3f4f6;
+}
+
+.col-sn,
+.col-total,
+.col-dob {
+    width: 90px;
+}
+
+.col-name {
+    width: 220px;
+}
+
+.col-day {
+    min-width: 70px;
+}
+
+.col-day-sub {
+    font-size: 0.8rem;
+    padding: 0.35rem 0.5rem;
+}
+
+.name-cell {
+    text-align: left;
+}
+
+.dob-cell {
+    white-space: nowrap;
+}
+
+.age-badge {
+    display: inline-block;
+    margin-left: 4px;
+    background: var(--neutral-200);
+    color: #374151;
+    border-radius: 999px;
+    padding: 2px 8px;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.att-cell {
+    text-align: center;
+    vertical-align: middle;
+}
+
+.att-check {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    position: relative;
+    width: 30px;
+    height: 30px;
+}
+
+.att-check input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.checkmark {
+    width: 28px;
+    height: 28px;
+    border: 2px solid #d1d5db;
+    border-radius: 6px;
+    background: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    color: transparent;
+    transition: all 0.15s ease;
+}
+
+.att-check input:checked + .checkmark {
+    background: #16a34a;
+    border-color: #16a34a;
+    color: #fff;
+    box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.2);
+}
+
+.totals-cell {
+    font-weight: 700;
+    color: #111827;
+}
+
+.register-footer-actions {
+    display: flex;
+    justify-content: flex-end;
+    padding: 1rem 0;
+}
+
+.form-field select.form-select {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    border: 1px solid var(--neutral-300);
+    border-radius: var(--radius);
+    background: #fff;
+    min-width: 120px;
+}
+
+.form-field select.form-select:focus {
+    outline: none;
+    border-color: var(--primary-500);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+</style>
+{% endblock %}

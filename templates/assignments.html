@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Assignments - {{ session.school_name }}{% endblock %}
+{% block page_title %}Assignments{% endblock %}
+{% block content %}
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+  <h2 style="margin:0; font-size:1.25rem; font-weight:700;">All Assignments</h2>
+  <a href="{{ url_for('create_assignment') }}" class="primary-btn">+ New Assignment</a>
+</div>
+{% if assignments %}
+<div class="table-wrapper">
+  <table>
+    <thead>
+      <tr>
+        <th>Title</th>
+        <th>Subject</th>
+        <th>Grade</th>
+        <th>Section</th>
+        <th>Due Date</th>
+        <th>Status</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for assignment in assignments %}
+      <tr>
+        <td>
+          {{ assignment.title }}
+          {% if assignment.file_path %}
+          <br><a href="{{ url_for('download_assignment_file', assignment_id=assignment.id) }}" target="_blank">📎 Download</a>
+          {% endif %}
+        </td>
+        <td>{{ assignment.subject }}</td>
+        <td>{{ assignment.grade or '-' }}</td>
+        <td>{{ assignment.section or '-' }}</td>
+        <td>{{ assignment.due_date }}</td>
+        <td>
+          <span class="status-badge status-{{ 'paid' if assignment.active else 'unpaid' }}">
+            {{ 'Active' if assignment.active else 'Inactive' }}
+          </span>
+        </td>
+        <td>
+          <form method="post" action="{{ url_for('delete_assignment', assignment_id=assignment.id) }}" style="display:inline;" onsubmit="return confirm('Delete this assignment?');">
+            <button type="submit" class="secondary-btn btn-sm">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="empty-state">No assignments found.</div>
+{% endif %}
+{% endblock %}

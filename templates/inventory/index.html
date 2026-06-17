@@ -1,0 +1,335 @@
+{% extends "base.html" %}
+{% block title %}Inventory - EUREKA{% endblock %}
+{% block page_title %}Inventory Management{% endblock %}
+{% block content %}
+<div class="inventory-dashboard">
+
+    <!-- ── Page Header ── -->
+    <div class="page-header-section inventory-header">
+        <div class="header-content">
+            <div>
+                <h1>📦 Inventory Management</h1>
+                <p>Manage school supplies, equipment, and resources</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Stats ── -->
+    <div class="inventory-stats">
+        <div class="stat-tile">
+            <span class="stat-label">Total Items</span>
+            <strong>{{ stats.total_items }}</strong>
+        </div>
+        <div class="stat-tile">
+            <span class="stat-label">In Stock</span>
+            <strong>{{ stats.in_stock_count }}</strong>
+        </div>
+        <div class="stat-tile">
+            <span class="stat-label">Low Stock</span>
+            <strong>{{ stats.low_stock_count }}</strong>
+        </div>
+        <div class="stat-tile">
+            <span class="stat-label">Out of Stock</span>
+            <strong>{{ stats.out_of_stock_count }}</strong>
+        </div>
+    </div>
+
+    <!-- ── Add Item Form (admin and superadmin) ── -->
+    {% if user_role in ('admin', 'superadmin') %}
+    <div class="card">
+        <div class="card-header">
+            <div>
+                <h2 class="card-title">Add New Inventory Item</h2>
+                <p class="card-subtitle">Register a new item in the inventory</p>
+            </div>
+        </div>
+        <form method="post" action="{{ url_for('inventory.add_inventory_item') }}" class="inventory-form">
+            <div class="form-grid">
+                <div class="form-field">
+                    <label for="item_name">Item Name *</label>
+                    <input id="item_name" name="name" type="text" required placeholder="e.g. Whiteboard Markers" />
+                </div>
+                <div class="form-field">
+                    <label for="description">Description</label>
+                    <input id="description" name="description" type="text" placeholder="Brief description" />
+                </div>
+                <div class="form-field">
+                    <label for="quantity">Quantity *</label>
+                    <input id="quantity" name="quantity" type="number" min="0" value="0" required />
+                </div>
+            </div>
+            <button type="submit" class="primary-btn">+ Add Item</button>
+        </form>
+    </div>
+    {% endif %}
+
+    <!-- ── Inventory Items Grid ── -->
+    <div class="card">
+        <div class="card-header">
+            <div>
+                <h2 class="card-title">Inventory Items</h2>
+                <p class="card-subtitle">Track and manage all inventory items</p>
+            </div>
+            <form method="get" action="{{ url_for('inventory.inventory') }}" class="inventory-filter">
+                <input type="text" name="q" value="{{ search_query }}" placeholder="Search items…" />
+                <select name="status">
+                    <option value="">All statuses</option>
+                    <option value="in_stock" {% if status_filter == 'in_stock' %}selected{% endif %}>In Stock</option>
+                    <option value="low_stock" {% if status_filter == 'low_stock' %}selected{% endif %}>Low Stock</option>
+                    <option value="out_of_stock" {% if status_filter == 'out_of_stock' %}selected{% endif %}>Out of Stock</option>
+                </select>
+                <button type="submit" class="secondary-btn">Filter</button>
+                {% if user_role in ('admin', 'superadmin') %}
+                <a href="{{ url_for('inventory.add_inventory_item') }}" class="primary-btn">+ Add Item</a>
+                {% endif %}
+            </form>
+        </div>
+
+        {% if inventory_items %}
+        <div class="items-grid">
+            {% for item in inventory_items %}
+            {% set status_class = item.status %}
+            <div class="item-card" id="item-{{ item.id }}">
+
+                <!-- Item Info -->
+                <div class="item-info">
+                    <h3 class="item-title">{{ item.name }}</h3>
+                    {% if item.description %}
+                    <p class="item-desc">{{ item.description }}</p>
+                    {% endif %}
+                    <div class="item-details">
+                        <span class="detail-item">📦 Quantity: {{ item.quantity }}</span>
+                    </div>
+                </div>
+
+                <!-- Status and Actions -->
+                <div class="item-actions">
+                    <span class="status-badge status-{{ status_class }}">
+                        {% if item.status == 'in_stock' %}In Stock
+                        {% elif item.status == 'low_stock' %}Low Stock
+                        {% elif item.status == 'out_of_stock' %}Out of Stock
+                        {% else %}{{ item.status|title }}{% endif %}
+                    </span>
+                    <div class="action-buttons">
+                        {% if user_role in ('admin', 'superadmin') %}
+                        <a href="{{ url_for('inventory.edit_inventory_item', item_id=item.id) }}" class="action-btn edit-btn">✏ Edit</a>
+                        <form method="post" action="{{ url_for('inventory.delete_inventory_item', item_id=item.id) }}" class="inline-delete-form" onsubmit="return confirm('Delete this item from inventory?');">
+                            <button type="submit" class="action-btn delete-btn">🗑 Delete</button>
+                        </form>
+                        {% endif %}
+                        <!-- Quick status update form -->
+                        <form method="post" action="{{ url_for('inventory.update_inventory_status', item_id=item.id) }}" class="status-update-form">
+                            <select name="status" onchange="this.form.submit()">
+                                <option value="in_stock" {% if item.status == 'in_stock' %}selected{% endif %}>In Stock</option>
+                                <option value="low_stock" {% if item.status == 'low_stock' %}selected{% endif %}>Low Stock</option>
+                                <option value="out_of_stock" {% if item.status == 'out_of_stock' %}selected{% endif %}>Out of Stock</option>
+                            </select>
+                            <input type="number" name="quantity" value="{{ item.quantity }}" min="0" style="width: 80px; margin-left: 0.5rem;">
+                            <button type="submit" class="action-btn update-btn">Update</button>
+                        </form>
+                    </div>
+                </div>
+
+            </div>
+            {% endfor %}
+        </div><!-- /.items-grid -->
+        {% else %}
+        <div class="empty-state">
+            <span class="empty-icon">📦</span>
+            <p>No inventory items found. Add your first item above!</p>
+        </div>
+        {% endif %}
+    </div>
+
+</div><!-- /.inventory-dashboard -->
+
+<style>
+/* ── Layout ── */
+.inventory-dashboard { max-width: 1400px; margin: 0 auto; }
+
+.inventory-header {
+    background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%);
+}
+.inventory-header h1 { color: white; font-size: 2rem; font-weight: 800; margin: 0 0 .4rem 0; }
+.inventory-header p  { color: rgba(255,255,255,.88); margin: 0; }
+
+.inventory-stats {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1rem;
+    margin: 1.5rem 0;
+}
+.stat-tile {
+    background: white;
+    border: 1px solid var(--neutral-200);
+    border-radius: var(--radius);
+    padding: 1rem;
+    box-shadow: var(--shadow);
+}
+.stat-label { display: block; color: var(--neutral-500); font-size: .78rem; font-weight: 700; text-transform: uppercase; }
+.stat-tile strong { display: block; color: var(--neutral-900); font-size: 1.75rem; margin-top: .25rem; }
+
+/* ── Form ── */
+.inventory-form .form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+.form-field-wide { grid-column: 1 / -1; }
+.form-field { display: flex; flex-direction: column; gap: .4rem; }
+.form-field label { color: var(--neutral-700); font-size: .85rem; font-weight: 700; }
+.form-field input,
+.form-field select,
+.form-field textarea,
+.inventory-filter input,
+.inventory-filter select {
+    background: white;
+    border: 1px solid var(--neutral-300);
+    border-radius: var(--radius);
+    color: var(--neutral-800);
+    font-size: .9rem;
+    padding: .65rem .85rem;
+}
+.form-field textarea { resize: vertical; min-height: 60px; }
+
+.inventory-filter { display: flex; gap: .75rem; flex-wrap: wrap; align-items: center; }
+
+/* ── Buttons ── */
+.primary-btn {
+    background: var(--primary-500);
+    color: white;
+    border: 0;
+    border-radius: var(--radius);
+    padding: .7rem 1.4rem;
+    font-weight: 700;
+    cursor: pointer;
+    font-size: .9rem;
+}
+.primary-btn:hover { background: var(--primary-600); }
+.primary-btn.small-btn { padding: .45rem .85rem; font-size: .82rem; }
+.secondary-btn {
+    background: var(--neutral-100);
+    color: var(--neutral-700);
+    border: 1px solid var(--neutral-300);
+    border-radius: var(--radius);
+    padding: .45rem .85rem;
+    font-weight: 700;
+    cursor: pointer;
+    font-size: .82rem;
+}
+.secondary-btn.small-btn { padding: .35rem .7rem; font-size: .78rem; }
+.action-btn {
+    border: 0;
+    border-radius: var(--radius);
+    padding: .4rem .75rem;
+    font-weight: 700;
+    font-size: .78rem;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-block;
+}
+.edit-btn { background: #dbeafe; color: #1d4ed8; }
+.edit-btn:hover { background: #bfdbfe; }
+.delete-btn  { background: #fee2e2; color: #b91c1c; }
+.delete-btn:hover { background: #fecaca; }
+.update-btn { background: #f0fdf4; color: #166534; }
+.update-btn:hover { background: #dcfce7; }
+
+/* ── Items Grid ── */
+.items-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 1.5rem;
+    padding: 1.5rem;
+}
+
+/* ── Item Card ── */
+.item-card {
+    background: var(--neutral-50);
+    border: 1px solid var(--neutral-200);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    transition: box-shadow .2s, transform .15s;
+}
+.item-card:hover {
+    box-shadow: 0 8px 30px rgba(0,0,0,.12);
+    transform: translateY(-2px);
+}
+
+/* Info */
+.item-info { padding: 1rem 1rem .5rem; }
+.item-title { font-size: 1.05rem; font-weight: 800; color: var(--neutral-900); margin: 0 0 .2rem; }
+.item-desc { font-size: .82rem; color: var(--neutral-600); margin: .4rem 0; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.category-badge {
+    background: #ecfdf5;
+    color: #047857;
+    border-radius: var(--radius-full);
+    font-size: .72rem;
+    font-weight: 700;
+    padding: .2rem .6rem;
+    display: inline-block;
+    margin-bottom: .4rem;
+}
+.item-details {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .75rem;
+    margin-top: .5rem;
+}
+.detail-item {
+    font-size: .78rem;
+    color: var(--neutral-500);
+    background: var(--neutral-100);
+    padding: .2rem .5rem;
+    border-radius: var(--radius);
+}
+
+/* Status and Actions */
+.item-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+    margin-top: auto;
+    padding: .75rem 1rem;
+    border-top: 1px solid var(--neutral-200);
+}
+.status-badge {
+    display: inline-block;
+    font-size: .72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    padding: .2rem .6rem;
+    border-radius: var(--radius-full);
+}
+.status-in_stock { background: #dcfce7; color: #166534; }
+.status-low_stock { background: #fef3c7; color: #92400e; }
+.status-out_of_stock { background: #fee2e2; color: #991b1b; }
+.action-buttons { display: flex; gap: .5rem; flex-wrap: wrap; }
+.status-update-form {
+    display: flex;
+    gap: .5rem;
+    align-items: flex-end;
+}
+.status-update-form select,
+.status-update-form input {
+    padding: .4rem .6rem;
+    font-size: .78rem;
+    border: 1px solid var(--neutral-300);
+    border-radius: var(--radius);
+}
+.status-update-form .update-btn {
+    padding: .4rem .8rem;
+}
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 3rem;
+    color: var(--neutral-500);
+}
+.empty-icon { font-size: 4rem; opacity: .5; margin-bottom: 1rem; }
+</style>
+{% endblock %}

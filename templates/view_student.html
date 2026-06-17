@@ -1,0 +1,494 @@
+{% extends "base.html" %}
+{% block title %}Student Profile - {{ student.name }}{% endblock %}
+{% block page_title %}Student Profile{% endblock %}
+{% block content %}
+<div class="student-profile">
+    <!-- Header -->
+    <div class="dashboard-header">
+        <div class="header-content">
+            <h1 class="dashboard-title">{{ student.name }}</h1>
+            <p class="dashboard-subtitle">Student ID: {{ student.student_number }}</p>
+        </div>
+        <div class="header-actions">
+            <a href="{{ url_for('edit_student', student_id=student.id) }}" class="btn-outline">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 20h9"/>
+                    <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
+                </svg>
+                Edit Student
+            </a>
+            <a href="{{ url_for('students') }}" class="btn-outline">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M19 12H5"/>
+                    <polyline points="12 19 5 12 12 5"/>
+                </svg>
+                Back to Students
+            </a>
+        </div>
+    </div>
+
+    <!-- Student Info -->
+    <div class="section">
+        <h2 class="section-title">Student Information</h2>
+        <div class="profile-grid">
+            <div class="profile-item">
+                <h3>Personal Information</h3>
+                <p><strong>Full Name:</strong> {{ student.name }}</p>
+                <p><strong>Student ID:</strong> {{ student.student_number }}</p>
+                <p><strong>Date of Birth:</strong> {{ student.date_of_birth or 'Not provided' }}</p>
+                <p><strong>Gender:</strong> {{ student.gender or 'Not provided' }}</p>
+                <p><strong>Email:</strong> {{ student.email or 'Not provided' }}</p>
+                <p><strong>Phone:</strong> {{ student.parent_contact or 'Not provided' }}</p>
+                <p><strong>Address:</strong> {{ student.address or 'Not provided' }}</p>
+            </div>
+            
+            <div class="profile-item">
+                <h3>Academic Information</h3>
+                <p><strong>School:</strong> {{ student.school_code }}</p>
+                <p><strong>Grade:</strong> {{ student.grade or 'Not assigned' }}</p>
+                <p><strong>Section:</strong> {{ student.section or 'Not assigned' }}</p>
+                <p><strong>Status:</strong> 
+                    {% if student.active %}
+                    <span class="status-badge status-active">Active</span>
+                    {% else %}
+                    <span class="status-badge status-inactive">Inactive</span>
+                    {% endif %}
+                </p>
+                <p><strong>Enrollment Date:</strong> {{ student.created_at.strftime('%Y-%m-%d') if student.created_at else 'Not available' }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Academic Performance -->
+    <div class="section">
+        <h2 class="section-title">Academic Performance</h2>
+        {% if grades %}
+        <div class="table-responsive">
+            <table class="grades-table">
+                <thead>
+                    <tr>
+                        <th>Subject</th>
+                        <th>Term</th>
+                        <th>Score</th>
+                        <th>Max Score</th>
+                        <th>Percentage</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for grade in grades %}
+                    <tr>
+                        <td>{{ grade.subject }}</td>
+                        <td>{{ grade.term or 'General' }}</td>
+                        <td>{{ grade.score }}</td>
+                        <td>{{ grade.max_score }}</td>
+                        <td>
+                            {% set percentage = (grade.score / grade.max_score * 100)|round(1) %}
+                            <span class="grade-badge {% if percentage >= 70 %}pass{% elif percentage >= 50 %}average{% else %}fail{% endif %}">
+                                {{ percentage }}%
+                            </span>
+                        </td>
+                        <td>{{ grade.created_at.strftime('%Y-%m-%d') if grade.created_at else '' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+            </svg>
+            <h3>No Grade Records</h3>
+            <p>No academic records found for this student.</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Attendance Summary -->
+    <div class="section">
+        <h2 class="section-title">Attendance Summary</h2>
+        {% if attendances %}
+        <div class="stats-overview">
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                        <line x1="16" y1="2" x2="16" y2="6"/>
+                        <line x1="8" y1="2" x2="8" y2="6"/>
+                        <line x1="3" y1="10" x2="21" y2="10"/>
+                    </svg>
+                </div>
+                <div class="stat-info">
+                    <h3 class="stat-number">{{ attendances|length }}</h3>
+                    <p class="stat-label">Total Records</p>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M22 10v6M2 10l10-5 10 5-10 5z"/>
+                        <path d="M6 12v5c3 3 9 3 12 0v-5"/>
+                    </svg>
+                </div>
+                <div class="stat-info">
+                    <h3 class="stat-number">{{ present_count }}</h3>
+                    <p class="stat-label">Present Days</p>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <path d="M12 6v6l4 2"/>
+                    </svg>
+                </div>
+                <div class="stat-info">
+                    <h3 class="stat-number">{{ absent_count }}</h3>
+                    <p class="stat-label">Absent Days</p>
+                </div>
+            </div>
+        </div>
+        <div class="table-wrapper">
+            <table class="attendance-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for attendance in attendances %}
+                    <tr>
+                        <td>{{ attendance.date }}</td>
+                        <td>
+                            {% if attendance.status == 'present' %}
+                            <span class="attendance-badge present">Present</span>
+                            {% else %}
+                            <span class="attendance-badge absent">Absent</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                <line x1="16" y1="2" x2="16" y2="6"/>
+                <line x1="8" y1="2" x2="8" y2="6"/>
+                <line x1="3" y1="10" x2="21" y2="10"/>
+            </svg>
+            <h3>No Attendance Records</h3>
+            <p>No attendance records found for this student.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+    .student-profile {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 1rem;
+    }
+    
+    .dashboard-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+        padding: 1.5rem 0;
+        border-bottom: 1px solid var(--neutral-200);
+    }
+    
+    .dashboard-title {
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: var(--neutral-900);
+        margin: 0;
+    }
+    
+    .dashboard-subtitle {
+        color: var(--neutral-500);
+        font-size: 1rem;
+        margin: 0.5rem 0 0 0;
+    }
+    
+    .section {
+        margin-bottom: 2.5rem;
+    }
+    
+    .section-title {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: var(--neutral-900);
+        margin: 0 0 1.5rem 0;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    
+    .profile-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 2rem;
+        margin-top: 1.5rem;
+    }
+    
+    .profile-item {
+        background: white;
+        border-radius: var(--radius-lg);
+        padding: 1.75rem;
+        box-shadow: var(--shadow);
+        border: 1px solid rgba(0, 0, 0, 0.02);
+    }
+    
+    .profile-item h3 {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: var(--neutral-900);
+        margin: 0 0 1rem 0;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .profile-item h3 svg {
+        width: 20px;
+        height: 20px;
+    }
+    
+    .profile-item p {
+        margin: 0.5rem 0;
+        line-height: 1.6;
+    }
+    
+    .profile-item p strong {
+        color: var(--neutral-700);
+    }
+    
+    .grades-table,
+    .attendance-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        background: white;
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+        box-shadow: var(--shadow);
+    }
+    
+    .grades-table th,
+    .grades-table td,
+    .attendance-table th,
+    .attendance-table td {
+        padding: 1.25rem 1rem;
+        text-align: left;
+        border-bottom: 1px solid var(--neutral-200);
+    }
+    
+    .grades-table th,
+    .attendance-table th {
+        background: var(--neutral-50);
+        font-weight: 600;
+        color: var(--neutral-700);
+        font-size: 0.875rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+    
+    .grades-table tr:last-child td,
+    .attendance-table tr:last-child td {
+        border-bottom: none;
+    }
+    
+    .grades-table tr:hover td,
+    .attendance-table tr:hover td {
+        background: var(--neutral-25);
+    }
+    
+    .grade-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.25rem 0.75rem;
+        border-radius: var(--radius-full);
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    
+    .grade-badge.pass {
+        background: var(--success-light);
+        color: var(--success);
+    }
+    
+    .grade-badge.average {
+        background: var(--warning-light);
+        color: var(--warning);
+    }
+    
+     .grade-badge.fail {
+         background: var(--danger-light);
+         color: var(--danger);
+     }
+     
+     .attendance-badge {
+         display: inline-flex;
+         align-items: center;
+         padding: 0.25rem 0.75rem;
+         border-radius: var(--radius-full);
+         font-size: 0.75rem;
+         font-weight: 600;
+     }
+     
+     .attendance-badge.present {
+         background: var(--success-light);
+         color: var(--success);
+     }
+     
+     .attendance-badge.absent {
+         background: var(--danger-light);
+         color: var(--danger);
+     }
+    
+    .stats-overview {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1.5rem;
+        margin-top: 1.5rem;
+    }
+    
+    .stat-card {
+        background: white;
+        border-radius: var(--radius-lg);
+        padding: 1.75rem;
+        box-shadow: var(--shadow);
+        border: 1px solid rgba(0, 0, 0, 0.02);
+        transition: all var(--transition-normal);
+        display: flex;
+        align-items: center;
+        gap: 1.25rem;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-4px);
+        box-shadow: var(--shadow-lg);
+    }
+    
+    .stat-icon {
+        width: 56px;
+        height: 56px;
+        border-radius: var(--radius);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+    
+    .stat-icon svg {
+        width: 28px;
+        height: 28px;
+    }
+    
+    .stat-info {
+        flex: 1;
+    }
+    
+    .stat-number {
+        font-size: 2.25rem;
+        font-weight: 800;
+        color: var(--neutral-900);
+        margin: 0 0 0.25rem 0;
+        line-height: 1;
+    }
+    
+    .stat-label {
+        color: var(--neutral-500);
+        font-size: 0.875rem;
+        margin: 0;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 3rem;
+        color: var(--neutral-500);
+    }
+    
+    .empty-state svg {
+        margin: 0 auto 1.5rem;
+        display: block;
+        color: var(--neutral-300);
+    }
+    
+    .empty-state h3 {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: var(--neutral-900);
+        margin: 0 0 0.5rem 0;
+    }
+    
+    .empty-state p {
+        color: var(--neutral-500);
+        font-size: 0.875rem;
+        margin: 0 0 1.5rem 0;
+    }
+    
+    /* Responsive Design */
+    @media (max-width: 768px) {
+        .dashboard-header {
+            flex-direction: column;
+            gap: 1rem;
+            text-align: center;
+        }
+        
+        .profile-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .grades-table th,
+        .grades-table td,
+        .attendance-table th,
+        .attendance-table td {
+            padding: 1rem;
+        }
+    }
+</style>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Calculate attendance statistics
+        const attendanceRows = document.querySelectorAll('.attendance-table tbody tr');
+        let presentCount = 0;
+        let absentCount = 0;
+        
+        attendanceRows.forEach(row => {
+            const statusCell = row.querySelector('td:nth-child(5)');
+            if (statusCell) {
+                const status = statusCell.textContent.trim().toLowerCase();
+                if (status === 'present') {
+                    presentCount++;
+                } else if (status === 'absent') {
+                    absentCount++;
+                }
+            }
+        });
+        
+        // Update the statistics if elements exist
+        const presentStat = document.querySelector('.stat-number:nth-of-type(2)');
+        const absentStat = document.querySelector('.stat-number:nth-of-type(3)');
+        
+        if (presentStat) {
+            presentStat.textContent = presentCount;
+        }
+        if (absentStat) {
+            absentStat.textContent = absentCount;
+        }
+    });
+</script>
+{% endblock %}

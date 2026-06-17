@@ -1,0 +1,544 @@
+{% extends "base.html" %}
+{% block title %}Teacher Assignments - EUREKA{% endblock %}
+{% block page_title %}Teacher Class & Responsibility Assignments{% endblock %}
+{% block content %}
+<div class="assignments-dashboard">
+
+    <!-- Header -->
+    <div class="page-header-section">
+        <div class="header-content">
+            <div>
+                <h1>Teacher Assignments</h1>
+                <p>Assign teachers to classes, subjects, and responsibilities</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Assignment Form -->
+    <div class="card create-card">
+        <div class="card-header">
+            <h2 class="card-title">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="12" y1="5" x2="12" y2="19"/>
+                    <line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+                Create New Assignment
+            </h2>
+            <p class="card-subtitle">Assign a teacher to a grade, section, and subject</p>
+        </div>
+
+        <form method="post" action="{{ url_for('create_teacher_assignment') }}" class="assignment-form">
+            <div class="form-section">
+                <div class="form-row">
+                    <div class="form-field">
+                        <label for="teacher_id">Teacher *</label>
+                        <select id="teacher_id" name="teacher_id" required>
+                            <option value="">Select a teacher...</option>
+                            {% for teacher in teachers %}
+                            <option value="{{ teacher.id }}">
+                                {{ teacher.name }} ({{ teacher.email or 'No email' }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="form-field">
+                        <label for="responsibility">Responsibility/Role *</label>
+                        <input type="text" id="responsibility" name="responsibility" 
+                               placeholder="e.g., Class Teacher, Subject Teacher, Grade Coordinator" 
+                               list="responsibility-list" required />
+                        <datalist id="responsibility-list">
+                            <option value="Class Teacher">
+                            <option value="Subject Teacher">
+                            <option value="Grade Coordinator">
+                            <option value="Exam Supervisor">
+                            <option value="Head of Department">
+                            <option value="Sports Coordinator">
+                            <option value="Club Advisor">
+                        </datalist>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-field">
+                        <label for="grade">Grade</label>
+                        <input type="text" id="grade" name="grade" 
+                               placeholder="e.g., Grade 1, JSS 1, SS 3" 
+                               list="grade-list" />
+                        <datalist id="grade-list">
+                            <option value="">-- Any --</option>
+                            {% for g in grades %}
+                            <option value="{{ g.name }}">{{ g.name }}</option>
+                            {% endfor %}
+                        </datalist>
+                    </div>
+
+                    <div class="form-field">
+                        <label for="section">Section</label>
+                        <input type="text" id="section" name="section" 
+                               placeholder="e.g., A, B, Section 1" 
+                               list="section-list" />
+                        <datalist id="section-list">
+                            <option value="">-- Any --</option>
+                            {% for s in sections %}
+                            <option value="{{ s.name }}">{{ s.name }}</option>
+                            {% endfor %}
+                        </datalist>
+                    </div>
+
+                    <div class="form-field">
+                        <label for="subject">Subject</label>
+                        <input type="text" id="subject" name="subject" 
+                               placeholder="e.g., Mathematics, English" 
+                               list="subject-list" />
+                        <datalist id="subject-list">
+                            {% for subject in school_subjects %}
+                            <option value="{{ subject.name }}">
+                            {% endfor %}
+                        </datalist>
+                    </div>
+                </div>
+
+                <div class="form-field checkbox-field">
+                    <label class="checkbox-label">
+                        <input type="checkbox" name="is_primary" value="1" />
+                        <span class="checkmark"></span>
+                        Primary Assignment (main role for this teacher)
+                    </label>
+                    <small>Mark this as the teacher's primary responsibility if they have multiple assignments</small>
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="primary-btn">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="12" y1="5" x2="12" y2="19"/>
+                        <line x1="5" y1="12" x2="19" y2="12"/>
+                    </svg>
+                    Create Assignment
+                </button>
+                <button type="reset" class="secondary-btn">Clear Form</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Existing Assignments -->
+    <div class="card list-card">
+        <div class="card-header">
+            <div>
+                <h2 class="card-title">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                        <circle cx="9" cy="7" r="4"/>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                    </svg>
+                    Current Teacher Assignments
+                </h2>
+                <p class="card-subtitle">All active and inactive assignments</p>
+            </div>
+        </div>
+
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Teacher</th>
+                        <th>Grade</th>
+                        <th>Section</th>
+                        <th>Subject</th>
+                        <th>Responsibility</th>
+                        <th>Primary</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for assignment in assignments %}
+                    <tr>
+                        <td>
+                            <div class="user-cell">
+                                <div class="user-avatar-sm">{{ assignment.teacher_name[0]|upper }}</div>
+                                <div>
+                                    <strong>{{ assignment.teacher_name }}</strong><br>
+                                    <small>{{ assignment.teacher_email or 'No email' }}</small>
+                                </div>
+                            </div>
+                        </td>
+                        <td><strong>{{ assignment.grade or 'All' }}</strong></td>
+                        <td>{{ assignment.section or 'All' }}</td>
+                        <td>{{ assignment.subject or 'All Subjects' }}</td>
+                        <td>
+                            <span class="role-tag {{ assignment.responsibility|lower|replace(' ', '-') }}">
+                                {{ assignment.responsibility }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if assignment.is_primary %}
+                            <span class="status-badge present">Primary</span>
+                            {% else %}
+                            <span class="status-badge">Secondary</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="status-badge {{ 'present' if assignment.active else 'absent' }}">
+                                {{ 'Active' if assignment.active else 'Inactive' }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if assignment.active %}
+                            <form method="post" action="{{ url_for('delete_teacher_assignment', assignment_id=assignment.id) }}" 
+                                  style="display: inline;" 
+                                  onsubmit="return confirm('Remove this assignment from {{ assignment.teacher_name }}?');">
+                                <button type="submit" class="danger-btn btn-sm">Remove</button>
+                            </form>
+                            {% else %}
+                            <form method="post" action="{{ url_for('restore_teacher_assignment', assignment_id=assignment.id) }}" 
+                                  style="display: inline;" 
+                                  onsubmit="return confirm('Restore this assignment?');">
+                                <button type="submit" class="success-btn btn-sm">Restore</button>
+                            </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="8" class="empty-state">
+                            <p>No teacher assignments found.</p>
+                            <small>Create your first assignment using the form above.</small>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<style>
+.assignments-dashboard {
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+/* Page Header */
+.page-header-section {
+    background: linear-gradient(135deg, var(--neutral-900) 0%, var(--neutral-800) 100%);
+    border-radius: var(--radius-lg);
+    padding: 2rem;
+    margin-bottom: 2rem;
+    color: white;
+    position: relative;
+    overflow: hidden;
+}
+
+.page-header-section::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 300px;
+    height: 300px;
+    background: radial-gradient(circle, rgba(59, 130, 246, 0.2) 0%, transparent 70%);
+    pointer-events: none;
+}
+
+.page-header-section .header-content {
+    position: relative;
+    z-index: 1;
+}
+
+.page-header-section h1 {
+    font-size: 2rem;
+    font-weight: 800;
+    margin: 0 0 0.5rem 0;
+    letter-spacing: -0.5px;
+}
+
+.page-header-section p {
+    font-size: 1rem;
+    color: var(--neutral-300);
+    margin: 0;
+}
+
+/* Cards */
+.create-card .card-title,
+.list-card .card-title {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 1.25rem;
+}
+
+.list-card {
+    margin-top: 2rem;
+}
+
+/* Form Styles */
+.assignment-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.form-section {
+    border: 2px solid var(--neutral-200);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    background: var(--neutral-50);
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.25rem;
+    margin-bottom: 1rem;
+}
+
+.form-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.form-field label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--neutral-700);
+}
+
+.form-field input,
+.form-field select {
+    padding: 0.75rem 1rem;
+    border: 2px solid var(--neutral-200);
+    border-radius: var(--radius);
+    font-size: 0.95rem;
+    color: var(--neutral-900);
+    background: white;
+    transition: all var(--transition-fast);
+}
+
+.form-field input:focus,
+.form-field select:focus {
+    outline: none;
+    border-color: var(--primary-500);
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+}
+
+.checkbox-field {
+    flex-direction: row;
+    align-items: center;
+    gap: 1rem;
+}
+
+.checkbox-field label {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    cursor: pointer;
+    margin: 0;
+}
+
+.checkbox-field small {
+    font-size: 0.8125rem;
+    color: var(--neutral-500);
+    margin-left: 2rem;
+}
+
+.form-actions {
+    display: flex;
+    gap: 1rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--neutral-200);
+}
+
+.primary-btn,
+.secondary-btn,
+.danger-btn,
+.success-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.875rem 1.75rem;
+    border-radius: var(--radius);
+    font-weight: 600;
+    font-size: 0.95rem;
+    text-decoration: none;
+    transition: all var(--transition-normal);
+    border: none;
+    cursor: pointer;
+}
+
+.primary-btn {
+    background: linear-gradient(135deg, var(--primary-500) 0%, var(--secondary-500) 100%);
+    color: white;
+    box-shadow: 0 4px 15px rgba(37, 99, 235, 0.3);
+}
+
+.primary-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(37, 99, 235, 0.4);
+}
+
+.secondary-btn {
+    background: white;
+    color: var(--neutral-700);
+    border: 2px solid var(--neutral-300);
+}
+
+.secondary-btn:hover {
+    background: var(--neutral-50);
+    border-color: var(--neutral-400);
+}
+
+.danger-btn {
+    background: linear-gradient(135deg, var(--danger) 0%, #f87171 100%);
+    color: white;
+}
+
+.danger-btn:hover {
+    box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
+}
+
+.success-btn {
+    background: linear-gradient(135deg, var(--success) 0%, #34d399 100%);
+    color: white;
+}
+
+.success-btn:hover {
+    box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+}
+
+.btn-sm {
+    padding: 0.5rem 1rem;
+    font-size: 0.8rem;
+}
+
+/* Table */
+.table-wrapper {
+    overflow-x: auto;
+    border-radius: var(--radius);
+    border: 1px solid var(--neutral-200);
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+}
+
+th, td {
+    padding: 1rem;
+    text-align: left;
+    border-bottom: 1px solid var(--neutral-200);
+}
+
+th {
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--neutral-500);
+    background: var(--neutral-50);
+}
+
+td {
+    font-size: 0.9rem;
+    color: var(--neutral-700);
+}
+
+tbody tr:hover {
+    background: var(--primary-50);
+}
+
+.user-cell {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.user-avatar-sm {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary-500) 0%, var(--secondary-500) 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.875rem;
+    color: white;
+    flex-shrink: 0;
+}
+
+/* Role Tags */
+.role-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border-radius: var(--radius-full);
+    text-transform: capitalize;
+    background: var(--neutral-100);
+    color: var(--neutral-600);
+}
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 3rem 2rem;
+    color: var(--neutral-500);
+}
+
+.empty-state p {
+    margin: 0 0 0.5rem 0;
+    font-weight: 600;
+}
+
+.empty-state small {
+    font-size: 0.8125rem;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .page-header-section {
+        padding: 1.5rem;
+    }
+
+    .page-header-section h1 {
+        font-size: 1.5rem;
+    }
+
+    .form-row {
+        grid-template-columns: 1fr;
+    }
+
+    .form-actions {
+        flex-direction: column;
+    }
+
+    .primary-btn,
+    .secondary-btn {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .checkbox-field {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .checkbox-field small {
+        margin-left: 0;
+        margin-top: 0.25rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .quick-actions-grid {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+{% endblock %}

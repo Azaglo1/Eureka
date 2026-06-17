@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login - EUREKA School Management System</title>
+    <link rel="stylesheet" href="/static/style.css?v=2.0" />
+    <link rel="icon" href="/static/favicon.png" type="image/x-icon">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    
+        <!-- Login Page (no sidebar) -->
+        
+<div class="login-page">
+    <div class="login-card">
+        <div class="login-header">
+            <div class="school-logo">
+                <img src="/static/favicon.png" alt="EUREKA Logo" width="48" height="48" onerror="this.style.display='none'">
+            </div>
+            <div class="login-title">
+                <h1>EUREKA</h1>
+                <p class="subtitle">School Management System</p>
+            </div>
+        </div>
+
+        
+        
+        <form method="post" action="/" class="login-form">
+            <h2>Welcome Back</h2>
+            <p class="description">Sign in to access your school portal</p>
+            
+            <div class="form-group">
+                <label for="school_code">School Institution</label>
+                <select id="school_code" name="school_code">
+                    <option value="">-- Select Your School --</option>
+                    
+                        <option value="GRACY001">Gracy International</option>
+                    
+                        <option value="SF01">Springfield</option>
+                    
+                        <option value="SHS001">Test School</option>
+                    
+                </select>
+            </div>
+    
+            <div class="form-group">
+                <label for="login_code">Access Credentials</label>
+                <div class="input-with-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M1 12s4-8 11-8 11 8 11 8" stroke="currentColor" stroke-width="2"/>
+                        <circle cx="12" cy="12" r="3" fill="currentColor"/>
+                    </svg>
+                    <input id="login_code" name="login_code" type="password" placeholder="Enter your access code" required autocomplete="current-password"/>
+                </div>
+            </div>
+    
+            <button type="submit" class="primary-btn btn-block">Sign In</button>
+        </form>
+        
+        <div class="login-footer">
+            <p>&copy; 2026 EUREKA School Management System. All rights reserved.</p>
+            <p class="version-info">Version 2.0.0</p>
+        </div>
+    </div>
+</div>
+
+    
+    
+    <script>
+        // Mobile menu toggle
+        const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+        const sidebar = document.querySelector('.sidebar');
+        
+        if (mobileMenuBtn && sidebar) {
+            mobileMenuBtn.addEventListener('click', function() {
+                sidebar.classList.toggle('open');
+            });
+        }
+    </script>
+</body>
+</html>

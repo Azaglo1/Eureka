@@ -1,0 +1,209 @@
+{% extends "base.html" %}
+{% block title %}Messages - Eureka{% endblock %}
+{% block page_title %}Messages {% if unread_count > 0 %}<span class="status-badge danger">{{ unread_count }} unread</span>{% endif %}{% endblock %}
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <div>
+            <h2 class="card-title">Inbox</h2>
+            <p class="card-subtitle">Communicate with teachers, parents, and staff</p>
+        </div>
+        <a href="#compose-message" class="secondary-btn">Compose New</a>
+    </div>
+
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>From/To</th>
+                    <th>Subject</th>
+                    <th>Date</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for message in messages %}
+                <tr class="{% if not message.read_at %}unread{% endif %}" style="cursor: default;">
+                    <td>
+                        <strong>{{ message.sender_name if message.sender_id == session.user_id else message.recipient_name }}</strong>
+                        <br>
+                        <small style="color: var(--neutral-400);">{{ message.sender_name if message.sender_id == session.user_id else 'To: ' + message.recipient_name }}</small>
+                    </td>
+                    <td>
+                        <a href="{{ url_for('read_message', message_id=message.id) }}" style="color: inherit; text-decoration: none;">
+                            {{ message.subject }}
+                        </a>
+                    </td>
+                    <td>{{ message.created_at.strftime('%Y-%m-%d') if message.created_at else '' }}</td>
+                    <td>
+                        {% if message.read_at %}
+                        <span class="status-badge present">Read</span>
+                        {% else %}
+                        <span class="status-badge absent">Unread</span>
+                        {% endif %}
+                        <br>
+                        <small style="color: var(--neutral-400);">
+                            {% if message.delivery_method == 'email' %}
+                            Email
+                            {% elif message.delivery_method == 'text' %}
+                            Text Message
+                            {% elif message.delivery_method == 'whatsapp' %}
+                            WhatsApp
+                            {% else %}
+                            App
+                            {% endif %}
+                        </small>
+                    </td>
+                    <td>
+                        <form method="post" action="{{ url_for('delete_message', message_id=message.id) }}" class="inline-delete-form" onsubmit="return confirm('Delete this message?');">
+                            <button type="submit" class="action-btn delete-btn">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" style="text-align: center; padding: 2rem; color: var(--neutral-400);">
+                        No messages found
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="card" id="compose-message">
+    <div class="card-header">
+        <div>
+            <h2 class="card-title">Compose Message</h2>
+            <p class="card-subtitle">Send a message to a recipient</p>
+        </div>
+    </div>
+
+    <form method="post" action="{{ url_for('send_message') }}">
+        <div class="form-field">
+            <label for="recipient_type">Send To</label>
+            <select id="recipient_type" name="recipient_type">
+                <option value="user">App User</option>
+                <option value="student_parent">Parent of Student</option>
+            </select>
+        </div>
+
+        <div class="form-field" id="user-recipient-field">
+            <label for="recipient_id">Recipient</label>
+            <select id="recipient_id" name="recipient_id" required>
+                <option value="">Select a recipient</option>
+                {% for recipient in recipients %}
+                <option value="{{ recipient.id }}">{{ recipient.name }} ({{ recipient.role|replace('_', ' ')|title }})</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="form-field" id="student-parent-field" style="display: none;">
+            <label for="student_id">Student Parent</label>
+            <select id="student_id" name="student_id">
+                <option value="">Select a student</option>
+                {% for student in students %}
+                <option value="{{ student.id }}"
+                        data-phone="{{ student.parent_contact or '' }}"
+                        data-email="{{ student.parent_email or '' }}">
+                    {{ student.name }} - {{ student.parent_name or 'Parent' }}
+                </option>
+                {% endfor %}
+            </select>
+            <small id="parent-contact-help" style="color: var(--neutral-500);"></small>
+        </div>
+
+        <div class="form-field">
+            <label for="subject">Subject</label>
+            <input id="subject" name="subject" type="text" required placeholder="Message subject" />
+        </div>
+
+        <div class="form-field">
+            <label for="body">Message</label>
+            <textarea id="body" name="body" rows="5" required placeholder="Type your message here..."></textarea>
+        </div>
+
+        <div class="form-field">
+            <label>Delivery Method</label>
+            <div style="display: flex; gap: 2rem; margin-top: 0.5rem; flex-wrap: wrap;">
+                <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                    <input type="radio" name="delivery_method" value="app" checked />
+                    <span>Send via App</span>
+                </label>
+                <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                    <input type="radio" name="delivery_method" value="email" />
+                    <span>Send via Email</span>
+                </label>
+                <label id="text-delivery-option" style="display: none; align-items: center; gap: 0.5rem; cursor: pointer;">
+                    <input type="radio" name="delivery_method" value="text" />
+                    <span>Send via Text Message</span>
+                </label>
+                <label id="whatsapp-delivery-option" style="display: none; align-items: center; gap: 0.5rem; cursor: pointer;">
+                    <input type="radio" name="delivery_method" value="whatsapp" />
+                    <span>Send via WhatsApp</span>
+                </label>
+            </div>
+        </div>
+
+        <button type="submit" class="primary-btn">Send Message</button>
+    </form>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const recipientType = document.getElementById('recipient_type');
+    const userField = document.getElementById('user-recipient-field');
+    const parentField = document.getElementById('student-parent-field');
+    const recipientSelect = document.getElementById('recipient_id');
+    const studentSelect = document.getElementById('student_id');
+    const textOption = document.getElementById('text-delivery-option');
+    const whatsappOption = document.getElementById('whatsapp-delivery-option');
+    const appRadio = document.querySelector('input[name="delivery_method"][value="app"]');
+    const emailRadio = document.querySelector('input[name="delivery_method"][value="email"]');
+    const textRadio = document.querySelector('input[name="delivery_method"][value="text"]');
+    const whatsappRadio = document.querySelector('input[name="delivery_method"][value="whatsapp"]');
+    const help = document.getElementById('parent-contact-help');
+
+    function selectedStudentOption() {
+        return studentSelect.options[studentSelect.selectedIndex];
+    }
+
+    function updateParentHelp() {
+        const option = selectedStudentOption();
+        if (!option || !option.value) {
+            help.textContent = '';
+            return;
+        }
+        const email = option.dataset.email || 'No email';
+        const phone = option.dataset.phone || 'No phone';
+        help.textContent = `Parent email: ${email} | Parent phone: ${phone}`;
+    }
+
+    function updateRecipientMode() {
+        const parentMode = recipientType.value === 'student_parent';
+        userField.style.display = parentMode ? 'none' : '';
+        parentField.style.display = parentMode ? '' : 'none';
+        textOption.style.display = parentMode ? 'flex' : 'none';
+        whatsappOption.style.display = parentMode ? 'flex' : 'none';
+        recipientSelect.required = !parentMode;
+        studentSelect.required = parentMode;
+
+        if (parentMode && appRadio.checked) {
+            whatsappRadio.checked = true;
+        }
+        if (!parentMode && (textRadio.checked || whatsappRadio.checked)) {
+            appRadio.checked = true;
+        }
+        if (!parentMode && !appRadio.checked && !emailRadio.checked) {
+            appRadio.checked = true;
+        }
+        updateParentHelp();
+    }
+
+    recipientType.addEventListener('change', updateRecipientMode);
+    studentSelect.addEventListener('change', updateParentHelp);
+    updateRecipientMode();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Parent Dashboard - Eureka{% endblock %}
+{% block page_title %}Parent Dashboard{% endblock %}
+{% block content %}
+<div class="card">
+    <div class="dashboard-header">
+        <div>
+            <h1>👨‍👩‍👧‍👦 Parent Portal, {{ session.user_name }}</h1>
+            <p>Monitor your child's academic progress and school activities</p>
+        </div>
+    </div>
+
+    <div class="stats-grid">
+        <article class="stat-card primary">
+            <h2>--</h2>
+            <p>My Children</p>
+        </article>
+        <article class="stat-card warning">
+            <h2>--</h2>
+            <p>Upcoming Events</p>
+        </article>
+        <article class="stat-card success">
+            <h2>--</h2>
+            <p>Unread Messages</p>
+        </article>
+    </div>
+
+    <section>
+        <h2>Quick Actions</h2>
+        <div class="quick-actions">
+            <a href="{{ url_for('attendance') }}" class="action-card">
+                <div class="action-icon">📅</div>
+                <div>
+                    <h3>Attendance</h3>
+                    <p>View your child's attendance records</p>
+                </div>
+            </a>
+            <a href="{{ url_for('grades') }}" class="action-card">
+                <div class="action-icon">🏆</div>
+                <div>
+                    <h3>Academic Progress</h3>
+                    <p>View grades and performance</p>
+                </div>
+            </a>
+            <a href="{{ url_for('messages') }}" class="action-card">
+                <div class="action-icon">💬</div>
+                <div>
+                    <h3>Messages</h3>
+                    <p>Communicate with teachers</p>
+                </div>
+            </a>
+            <a href="{{ url_for('events') }}" class="action-card">
+                <div class="action-icon">📅</div>
+                <div>
+                    <h3>School Events</h3>
+                    <p>View upcoming events</p>
+                </div>
+            </a>
+        </div>
+    </section>
+</div>
+{% endblock %}

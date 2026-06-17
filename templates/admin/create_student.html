@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% block title %}Create Student - {{ session.school_name }}{% endblock %}
+{% block page_title %}Create New Student{% endblock %}
+{% block content %}
+<div class="admin-dashboard">
+    <div class="dashboard-header">
+        <div class="header-content">
+            <h1 class="dashboard-title">Create New Student</h1>
+            <p class="dashboard-subtitle">Add a new student record to the system</p>
+        </div>
+        <div class="header-actions">
+            <a href="{{ url_for('admin_panel') }}" class="btn-secondary">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M19 12H5M12 19l-7-7 7-7"/>
+                </svg>
+                Back to Admin Panel
+            </a>
+        </div>
+    </div>
+
+    <form method="post" class="form-container">
+        <div class="form-group">
+            <label for="name">Full Name *</label>
+            <input type="text" id="name" name="name" required placeholder="Enter full name">
+        </div>
+        
+        <div class="form-group">
+            <label for="student_number">Student Number *</label>
+            <input type="text" id="student_number" name="student_number" required placeholder="Enter student number">
+        </div>
+        
+        <div class="form-group">
+            <label for="school_id">School *</label>
+            <select id="school_id" name="school_id" required>
+                <option value="">Select School</option>
+                {% for school in schools %}
+                <option value="{{ school.id }}">{{ school.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="grade">Grade</label>
+            <select id="grade" name="grade">
+                <option value="">Select Grade</option>
+                {% for grade in custom_grades %}
+                <option value="{{ grade.name }}" {% if request.args.get('grade') == grade.name %}selected{% endif %}>{{ grade.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="section">Section</label>
+            <select id="section" name="section">
+                <option value="">Select Section</option>
+                {% for section in custom_sections %}
+                <option value="{{ section.name }}" {% if request.args.get('section') == section.name %}selected{% endif %}>{{ section.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email" placeholder="Enter email address">
+        </div>
+        
+        <div class="form-group">
+            <label for="date_of_birth">Date of Birth</label>
+            <input type="date" id="date_of_birth" name="date_of_birth">
+        </div>
+        
+        <div class="form-group">
+            <label for="gender">Gender</label>
+            <select id="gender" name="gender">
+                <option value="">Select Gender</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+                <option value="Other">Other</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="address">Address</label>
+            <textarea id="address" name="address" rows="3" placeholder="Enter address"></textarea>
+        </div>
+        
+        <div class="form-group">
+            <label for="guardian_name">Guardian Name</label>
+            <input type="text" id="guardian_name" name="guardian_name" placeholder="Enter guardian name">
+        </div>
+        
+        <div class="form-group">
+            <label for="emergency_contact">Emergency Contact</label>
+            <input type="text" id="emergency_contact" name="emergency_contact" placeholder="Enter emergency contact">
+        </div>
+        
+        <div class="form-group">
+            <label for="allergies">Allergies</label>
+            <textarea id="allergies" name="allergies" rows="2" placeholder="Enter allergies (if any)"></textarea>
+        </div>
+        
+        <div class="form-group">
+            <label for="blood_group">Blood Group</label>
+            <input type="text" id="blood_group" name="blood_group" placeholder="Enter blood group">
+        </div>
+        
+        <div class="form-group">
+            <label for="medical_notes">Medical Notes</label>
+            <textarea id="medical_notes" name="medical_notes" rows="3" placeholder="Enter medical notes"></textarea>
+        </div>
+        
+        <div class="form-group">
+            <label for="parent_name">Parent Name</label>
+            <input type="text" id="parent_name" name="parent_name" placeholder="Enter parent name">
+        </div>
+        
+        <div class="form-group">
+            <label for="parent_contact">Parent Contact</label>
+            <input type="text" id="parent_contact" name="parent_contact" placeholder="Enter parent contact">
+        </div>
+        
+        <div class="form-group">
+            <label for="parent_email">Parent Email</label>
+            <input type="email" id="parent_email" name="parent_email" placeholder="Enter parent email address">
+        </div>
+        
+        <div class="form-group">
+            <label for="parent_user_id">Link to Parent User (optional)</label>
+            <select id="parent_user_id" name="parent_user_id">
+                <option value="">-- Select Parent User --</option>
+                {% for user in parent_users %}
+                <option value="{{ user.id }}">{{ user.name }} ({{ user.email or user.login_code }})</option>
+                {% endfor %}
+            </select>
+            <small>Link this student to a parent account for direct access</small>
+        </div>
+        
+        <div class="form-actions">
+            <a href="{{ url_for('admin_panel') }}" class="btn-secondary">Cancel</a>
+            <button type="submit" class="btn-primary">Create Student</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

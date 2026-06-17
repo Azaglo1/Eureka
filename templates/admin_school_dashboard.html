@@ -1,0 +1,737 @@
+{% extends "base.html" %}
+{% block title %}{{ school.name }} Dashboard - EUREKA{% endblock %}
+{% block page_title %}{{ school.name }}{% endblock %}
+{% block content %}
+<div class="school-dashboard">
+
+    <!-- School Header -->
+    <div class="school-header">
+        <div class="school-info">
+            <div class="school-icon-large">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                    <polyline points="9 22 9 12 15 12 15 22"/>
+                </svg>
+            </div>
+            <div>
+                <h1>{{ school.name }}</h1>
+                <p class="school-code">Code: <code>{{ school.school_code }}</code></p>
+                {% if school.description %}
+                <p class="school-description">{{ school.description }}</p>
+                {% endif %}
+            </div>
+        </div>
+        <div class="school-badge">
+            <span class="role-badge admin">Admin Portal</span>
+        </div>
+    </div>
+
+    <!-- Statistics Overview -->
+    <div class="stats-overview">
+        <div class="stat-card">
+            <div class="stat-icon" style="background: var(--primary-100); color: var(--primary-600);">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                    <circle cx="9" cy="7" r="4"/>
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                </svg>
+            </div>
+            <div class="stat-content">
+                <h3>{{ student_count }}</h3>
+                <p>Total Students</p>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon" style="background: var(--success-light); color: var(--success);">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                    <circle cx="9" cy="7" r="4"/>
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                </svg>
+            </div>
+            <div class="stat-content">
+                <h3>{{ teacher_count }}</h3>
+                <p>Teachers</p>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon" style="background: var(--info-light); color: var(--info);">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <path d="M12 6v6l4 2"/>
+                </svg>
+            </div>
+            <div class="stat-content">
+                <h3>{{ admin_count }}</h3>
+                <p>Administrators</p>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon" style="background: var(--warning-light); color: var(--warning);">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                    <polyline points="22 4 12 14.01 9 11.01"/>
+                </svg>
+            </div>
+            <div class="stat-content">
+                <h3>{{ attendance_today }}</h3>
+                <p>Present Today</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="section-container">
+        <h2 class="section-title">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <polygon points="10 8 16 12 10 16 10 8"/>
+            </svg>
+            Quick Actions
+        </h2>
+        <div class="quick-actions-grid">
+            <a href="{{ url_for('admin_panel') }}" class="quick-action-card">
+                <div class="quick-icon" style="background: var(--primary-100); color: var(--primary-600);">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="3"/>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                    </svg>
+                    <span>Manage Users</span>
+                </div>
+            </a>
+
+            <a href="{{ url_for('students') }}" class="quick-action-card">
+                <div class="quick-icon" style="background: var(--success-light); color: var(--success);">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                        <circle cx="9" cy="7" r="4"/>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                    </svg>
+                    <span>View Students</span>
+                </div>
+            </a>
+
+            <a href="{{ url_for('teacher_assignments') }}" class="quick-action-card">
+                <div class="quick-icon" style="background: var(--info-light); color: var(--info);">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                        <circle cx="9" cy="7" r="4"/>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                    </svg>
+                    <span>Teacher Assign</span>
+                </div>
+            </a>
+
+            <a href="{{ url_for('attendance') }}" class="quick-action-card">
+                <div class="quick-icon" style="background: var(--warning-light); color: var(--warning);">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                        <line x1="16" y1="2" x2="16" y2="6"/>
+                        <line x1="8" y1="2" x2="8" y2="6"/>
+                        <line x1="3" y1="10" x2="21" y2="10"/>
+                    </svg>
+                    <span>Attendance</span>
+                </div>
+            </a>
+
+            <a href="{{ url_for('grades') }}" class="quick-action-card">
+                <div class="quick-icon" style="background: var(--danger-light); color: var(--danger);">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                    </svg>
+                    <span>Grades</span>
+                </div>
+            </a>
+
+            <a href="{{ url_for('finance') }}" class="quick-action-card">
+                <div class="quick-icon" style="background: var(--secondary-100); color: var(--secondary-600);">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="12" y1="1" x2="12" y2="23"/>
+                        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                    </svg>
+                    <span>Finance</span>
+                </div>
+            </a>
+        </div>
+    </div>
+
+    <!-- Recent Announcements -->
+    <div class="section-container">
+        <div class="section-header">
+            <h2 class="section-title" style="margin-bottom: 0; border-bottom: none;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                </svg>
+                Recent Announcements
+            </h2>
+            <a href="{{ url_for('announcements') }}" class="view-all-link">View All →</a>
+        </div>
+
+        {% if recent_announcements %}
+        <div class="announcements-list">
+            {% for ann in recent_announcements[:5] %}
+            <div class="announcement-card">
+                <div class="announcement-header">
+                    <h4>{{ ann.title }}</h4>
+                    <span class="priority-badge {{ ann.priority }}">{{ ann.priority|title }}</span>
+                </div>
+                <p>{{ ann.content[:150] }}{% if ann.content|length > 150 %}...{% endif %}</p>
+                <div class="announcement-meta">
+                    <small>By {{ ann.created_by_name }} on {{ ann.created_at[:10] }}</small>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state-card">
+            <p>No announcements yet. Create one to keep everyone informed!</p>
+            <a href="{{ url_for('announcements') }}" class="primary-btn">Create Announcement</a>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Upcoming Events -->
+    <div class="section-container">
+        <div class="section-header">
+            <h2 class="section-title" style="margin-bottom: 0; border-bottom: none;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                    <line x1="16" y1="2" x2="16" y2="6"/>
+                    <line x1="8" y1="2" x2="8" y2="6"/>
+                    <line x1="3" y1="10" x2="21" y2="10"/>
+                </svg>
+                Upcoming Events
+            </h2>
+            <a href="{{ url_for('events') }}" class="view-all-link">View All →</a>
+        </div>
+
+        {% if recent_events %}
+        <div class="events-list">
+            {% for event in recent_events[:5] %}
+            <div class="event-card">
+                <div class="event-date">
+                    <span class="event-day">{{ event.event_date[8:10] }}</span>
+                    <span class="event-month">{{ event.event_date[5:7]|upper }}</span>
+                </div>
+                <div class="event-details">
+                    <h4>{{ event.title }}</h4>
+                    <p>{{ event.description[:80] }}{% if event.description|length > 80 %}...{% endif %}</p>
+                    <small>{{ event.start_time or '' }} - {{ event.location or 'TBD' }}</small>
+                </div>
+                <span class="event-type-badge {{ event.event_type }}">{{ event.event_type|title }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state-card">
+            <p>No upcoming events scheduled.</p>
+            <a href="{{ url_for('events') }}" class="primary-btn">Create Event</a>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Recent Grades Activity -->
+    <div class="section-container">
+        <div class="section-header">
+            <h2 class="section-title" style="margin-bottom: 0; border-bottom: none;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>
+                Recent Grade Entries
+            </h2>
+            <a href="{{ url_for('grades') }}" class="view-all-link">View All →</a>
+        </div>
+
+        {% if recent_grades %}
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Student</th>
+                        <th>Subject</th>
+                        <th>Score</th>
+                        <th>Term</th>
+                        <th>Recorded By</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for grade in recent_grades %}
+                    <tr>
+                        <td><strong>{{ grade.student_name }}</strong></td>
+                        <td>{{ grade.subject }}</td>
+                        <td>
+                            <span class="grade-badge {% if (grade.score / grade.max_score * 100) >= 70 %}pass{% elif (grade.score / grade.max_score * 100) >= 50 %}average{% else %}fail{% endif %}">
+                                {{ grade.score }}/{{ grade.max_score }}
+                            </span>
+                        </td>
+                        <td>{{ grade.term or 'N/A' }}</td>
+                        <td>{{ grade.recorded_by_name }}</td>
+                        <td>{{ grade.created_at[:10] }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state-card">
+            <p>No grades recorded yet.</p>
+            <a href="{{ url_for('grades') }}" class="primary-btn">Record Grades</a>
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+
+<style>
+.school-dashboard {
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+/* School Header */
+.school-header {
+    background: linear-gradient(135deg, var(--neutral-900) 0%, var(--neutral-800) 100%);
+    border-radius: var(--radius-lg);
+    padding: 2rem;
+    margin-bottom: 2rem;
+    color: white;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.school-header::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 200px;
+    height: 200px;
+    background: radial-gradient(circle, rgba(59, 130, 246, 0.2) 0%, transparent 70%);
+    pointer-events: none;
+}
+
+.school-info {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    position: relative;
+    z-index: 1;
+}
+
+.school-icon-large {
+    width: 72px;
+    height: 72px;
+    background: linear-gradient(135deg, var(--primary-500) 0%, var(--secondary-500) 100%);
+    border-radius: var(--radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.school-info h1 {
+    font-size: 2rem;
+    font-weight: 800;
+    margin: 0 0 0.5rem 0;
+    letter-spacing: -0.5px;
+}
+
+.school-code {
+    display: inline-block;
+    font-size: 0.875rem;
+    color: var(--neutral-300);
+    margin-bottom: 0.5rem;
+}
+
+.school-code code {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 0.25rem 0.5rem;
+    border-radius: var(--radius-sm);
+    font-weight: 600;
+}
+
+.school-description {
+    font-size: 0.9375rem;
+    color: var(--neutral-300);
+    margin: 0;
+    max-width: 600px;
+}
+
+.school-badge {
+    position: relative;
+    z-index: 1;
+}
+
+/* Stats */
+.stats-overview {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.stat-card {
+    background: white;
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    box-shadow: var(--shadow);
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    transition: all var(--transition-normal);
+    border: 1px solid rgba(0, 0, 0, 0.02);
+}
+
+.stat-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg);
+}
+
+.stat-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: var(--radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.stat-content {
+    flex: 1;
+}
+
+.stat-content h3 {
+    font-size: 2rem;
+    font-weight: 800;
+    color: var(--neutral-900);
+    margin: 0 0 0.25rem 0;
+    line-height: 1;
+}
+
+.stat-content p {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--neutral-700);
+    margin: 0;
+}
+
+/* Section */
+.section-container {
+    margin-bottom: 2rem;
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+.section-title {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--neutral-900);
+    margin: 0;
+    padding-bottom: 0.75rem;
+    border-bottom: 2px solid var(--neutral-200);
+}
+
+.section-title svg {
+    color: var(--primary-500);
+}
+
+.view-all-link {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--primary-500);
+    text-decoration: none;
+    transition: color var(--transition-fast);
+}
+
+.view-all-link:hover {
+    color: var(--primary-600);
+}
+
+/* Quick Actions */
+.quick-actions-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.quick-action-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1.5rem 1rem;
+    background: white;
+    border: 1px solid var(--neutral-200);
+    border-radius: var(--radius);
+    text-decoration: none;
+    color: var(--neutral-700);
+    transition: all var(--transition-normal);
+    text-align: center;
+}
+
+.quick-action-card:hover {
+    background: var(--primary-50);
+    border-color: var(--primary-300);
+    color: var(--primary-600);
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-md);
+}
+
+.quick-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: var(--radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.quick-action-card span {
+    font-size: 0.9375rem;
+    font-weight: 600;
+}
+
+/* Announcements List */
+.announcements-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.announcement-card {
+    background: white;
+    border: 1px solid var(--neutral-200);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    transition: all var(--transition-normal);
+}
+
+.announcement-card:hover {
+    border-color: var(--primary-300);
+    box-shadow: var(--shadow);
+    transform: translateY(-2px);
+}
+
+.announcement-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 0.75rem;
+}
+
+.announcement-header h4 {
+    font-size: 1.0625rem;
+    font-weight: 700;
+    color: var(--neutral-900);
+    margin: 0;
+}
+
+.priority-badge {
+    padding: 0.25rem 0.75rem;
+    border-radius: var(--radius-full);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.priority-badge.high {
+    background: var(--warning-light);
+    color: var(--warning);
+}
+
+.priority-badge.urgent {
+    background: var(--danger-light);
+    color: var(--danger);
+}
+
+.priority-badge.normal,
+.priority-badge.low {
+    background: var(--neutral-100);
+    color: var(--neutral-600);
+}
+
+.announcement-card p {
+    font-size: 0.9375rem;
+    color: var(--neutral-600);
+    line-height: 1.6;
+    margin: 0 0 1rem 0;
+}
+
+.announcement-meta {
+    font-size: 0.8125rem;
+    color: var(--neutral-500);
+}
+
+/* Events List */
+.events-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.event-card {
+    background: white;
+    border: 1px solid var(--neutral-200);
+    border-radius: var(--radius);
+    padding: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    transition: all var(--transition-normal);
+}
+
+.event-card:hover {
+    border-color: var(--primary-300);
+    box-shadow: var(--shadow);
+    transform: translateY(-2px);
+}
+
+.event-date {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: var(--primary-50);
+    color: var(--primary-600);
+    padding: 0.75rem;
+    border-radius: var(--radius);
+    min-width: 60px;
+}
+
+.event-day {
+    font-size: 1.5rem;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.event-month {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.event-details {
+    flex: 1;
+}
+
+.event-details h4 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--neutral-900);
+    margin: 0 0 0.25rem 0;
+}
+
+.event-details p {
+    font-size: 0.875rem;
+    color: var(--neutral-500);
+    margin: 0 0 0.25rem 0;
+}
+
+.event-details small {
+    font-size: 0.8125rem;
+    color: var(--neutral-400);
+}
+
+.event-type-badge {
+    padding: 0.375rem 0.75rem;
+    border-radius: var(--radius-full);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: capitalize;
+    background: var(--neutral-100);
+    color: var(--neutral-600);
+    white-space: nowrap;
+}
+
+/* Empty State */
+.empty-state-card {
+    text-align: center;
+    padding: 3rem 2rem;
+    background: var(--neutral-50);
+    border: 2px dashed var(--neutral-300);
+    border-radius: var(--radius);
+}
+
+.empty-state-card p {
+    margin: 0 0 1.5rem 0;
+    color: var(--neutral-500);
+    font-size: 0.9375rem;
+}
+
+.primary-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    background: linear-gradient(135deg, var(--primary-500) 0%, var(--secondary-500) 100%);
+    color: white;
+    border: none;
+    border-radius: var(--radius);
+    font-weight: 600;
+    font-size: 0.9rem;
+    text-decoration: none;
+    transition: all var(--transition-normal);
+}
+
+.primary-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .school-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .school-info {
+        flex-direction: column;
+        text-align: center;
+    }
+
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 480px) {
+    .stats-overview {
+        grid-template-columns: 1fr;
+    }
+
+    .quick-actions-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .event-card {
+        flex-direction: column;
+        text-align: center;
+    }
+}
+</style>
+{% endblock %}

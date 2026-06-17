@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}Bulk Upload Books - EUREKA{% endblock %}
+{% block page_title %}Bulk Upload Books{% endblock %}
+{% block content %}
+<div class="library-dashboard">
+
+    <!-- ── Page Header ── -->
+    <div class="page-header-section library-header">
+        <div class="header-content">
+            <div>
+                <h1>📚 Bulk Upload Books</h1>
+                <p>Upload multiple books at once using a CSV file</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Instructions Card ── -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">CSV Format Instructions</h2>
+        </div>
+        <div class="card-body">
+            <p>Upload a CSV file with the following columns:</p>
+            <ul style="margin: 1rem 0; padding-left: 1.5rem;">
+                <li><strong>title</strong> (required) - Book title</li>
+                <li><strong>author</strong> (required) - Book author</li>
+                <li><strong>isbn</strong> (optional) - ISBN or book code</li>
+                <li><strong>category</strong> (optional) - Book category</li>
+                <li><strong>description</strong> (optional) - Book description</li>
+                <li><strong>quantity</strong> (optional) - Number of copies (default: 1)</li>
+            </ul>
+            <p><strong>Example CSV:</strong></p>
+            <pre style="background: var(--neutral-100); padding: 1rem; border-radius: var(--radius); overflow-x: auto;">
+title,author,isbn,category,description,quantity
+The Great Gatsby,F. Scott Fitzgerald,978-0-316-92946-6,Fiction,A classic novel,1
+To Kill a Mockingbird,Harper Lee,978-0-06-112008-4,Fiction,American literature,2
+            </pre>
+        </div>
+    </div>
+
+    <!-- ── Upload Form ── -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Upload CSV File</h2>
+        </div>
+        <form method="post" action="{{ url_for('bulk_upload_books') }}" enctype="multipart/form-data" class="library-form">
+            <div class="form-field">
+                <label for="csv_file">Select CSV File *</label>
+                <input type="file" name="csv_file" id="csv_file" accept=".csv" required />
+            </div>
+            <div style="margin-top: 1rem;">
+                <button type="submit" class="primary-btn">📤 Upload Books</button>
+                <a href="{{ url_for('library') }}" class="secondary-btn" style="margin-left: .5rem;">← Back to Library</a>
+            </div>
+        </form>
+    </div>
+
+</div>
+
+<style>
+.library-dashboard { max-width: 800px; margin: 0 auto; }
+.library-header {
+    background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%);
+}
+.library-header h1 { color: white; font-size: 2rem; font-weight: 800; margin: 0 0 .4rem 0; }
+.library-header p  { color: rgba(255,255,255,.88); margin: 0; }
+.card-body { padding: 1rem 1.5rem; }
+.form-field { display: flex; flex-direction: column; gap: .4rem; }
+.form-field label { color: var(--neutral-700); font-size: .85rem; font-weight: 700; }
+.form-field input[type="file"] {
+    background: white;
+    border: 1px solid var(--neutral-300);
+    border-radius: var(--radius);
+    color: var(--neutral-800);
+    font-size: .9rem;
+    padding: .65rem .85rem;
+}
+.primary-btn {
+    background: var(--primary-500);
+    color: white;
+    border: 0;
+    border-radius: var(--radius);
+    padding: .7rem 1.4rem;
+    font-weight: 700;
+    cursor: pointer;
+    font-size: .9rem;
+}
+.primary-btn:hover { background: var(--primary-600); }
+.secondary-btn {
+    background: var(--neutral-100);
+    color: var(--neutral-700);
+    border: 1px solid var(--neutral-300);
+    border-radius: var(--radius);
+    padding: .7rem 1.4rem;
+    font-weight: 700;
+    cursor: pointer;
+    font-size: .9rem;
+    text-decoration: none;
+    display: inline-block;
+}
+.secondary-btn:hover { background: var(--neutral-200); }
+</style>
+{% endblock %}

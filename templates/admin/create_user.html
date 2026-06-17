@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Add New User - EUREKA{% endblock %}
+{% block page_title %}Add New User{% endblock %}
+{% block content %}
+<div class="edit-user-dashboard">
+    <div class="page-header-section edit-header">
+        <div class="header-content">
+            <div>
+                <h1>Add New User</h1>
+                <p>Create a new teacher, admin, or parent account</p>
+            </div>
+            <a href="{{ url_for('admin_panel') }}" class="primary-btn" style="background: white; color: var(--primary-600);">Cancel</a>
+        </div>
+    </div>
+
+    <div class="card form-card">
+        <div class="card-header">
+            <h2 class="card-title">User Information</h2>
+            <p class="card-subtitle">Fill in the details for the new user</p>
+        </div>
+
+        <form method="post" action="{{ url_for('create_user') }}" class="edit-form">
+            <div class="form-section">
+                <div class="form-field">
+                    <label for="name">Full Name *</label>
+                    <input id="name" name="name" type="text" required 
+                           value="{{ request.form.name or '' }}" 
+                           placeholder="Enter full name" />
+                </div>
+
+                <div class="form-field">
+                    <label for="email">Email Address</label>
+                    <input id="email" name="email" type="email" 
+                           value="{{ request.form.email or '' }}" 
+                           placeholder="user@example.com" />
+                </div>
+
+                <div class="form-field">
+                    <label for="role">Role *</label>
+                    <select id="role" name="role" required>
+                        <option value="teacher" {{ 'selected' if request.form.role == 'teacher' else '' }}>Teacher</option>
+                        <option value="admin" {{ 'selected' if request.form.role == 'admin' else '' }}>Admin</option>
+                        <option value="parent" {{ 'selected' if request.form.role == 'parent' else '' }}>Parent</option>
+                    </select>
+                </div>
+
+                <div class="form-field">
+                    <label for="login_code">Login Code *</label>
+                    <input id="login_code" name="login_code" type="text" required 
+                           value="{{ request.form.login_code or '' }}" 
+                           placeholder="Enter unique login code" />
+                </div>
+
+                <div class="form-actions">
+                    <a href="{{ url_for('admin_panel') }}" class="secondary-btn">Cancel</a>
+                    <button type="submit" class="primary-btn">Create User</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

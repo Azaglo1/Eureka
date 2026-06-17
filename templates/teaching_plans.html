@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Teaching Plans - {{ session.school_name }}{% endblock %}
+{% block page_title %}Teaching Plans{% endblock %}
+{% block content %}
+<a href="{{ url_for('create_teaching_plan') }}" class="primary-btn">Create Teaching Plan</a>
+{% if teaching_plans %}
+<div class="table-wrapper">
+  <table>
+    <thead>
+      <tr>
+        <th>Title</th>
+        <th>Subject</th>
+        <th>Grade</th>
+        <th>Section</th>
+        <th>Week</th>
+        <th>Day</th>
+        <th>Status</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for plan in teaching_plans %}
+      <tr>
+        <td>
+          {{ plan.title }}
+          {% if plan.attachment_path %}
+          <br><a href="{{ url_for('download_teaching_plan_attachment', plan_id=plan.id) }}" target="_blank">📎 Download</a>
+          {% endif %}
+        </td>
+        <td>{{ plan.subject }}</td>
+        <td>{{ plan.grade }}</td>
+        <td>{{ plan.section }}</td>
+        <td>{{ plan.week_number or '-' }}</td>
+        <td>{{ plan.day_of_week or '-' }}</td>
+        <td>
+          <span class="status-badge status-{{ plan.status or 'draft' }}">
+            {{ plan.status or 'Draft' }}
+          </span>
+        </td>
+        <td>
+          <a href="{{ url_for('edit_teaching_plan', plan_id=plan.id) }}" class="secondary-btn btn-sm">Edit</a>
+          <a href="{{ url_for('view_teaching_plan', plan_id=plan.id) }}" class="primary-btn btn-sm">View</a>
+          <form method="post" action="{{ url_for('delete_teaching_plan', plan_id=plan.id) }}" style="display:inline;" onsubmit="return confirm('Delete?');">
+            <button type="submit" class="secondary-btn btn-sm">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="empty-state">No teaching plans found.</div>
+{% endif %}
+{% endblock %}

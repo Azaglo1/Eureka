@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Super Admin Login - EUREKA</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="icon" href="{{ url_for('static', filename='favicon.png') }}" type="image/x-icon">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #1a0a2e 0%, #3d1a5c 50%, #1a0a2e 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+        }
+        .login-card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 24px;
+            padding: 3rem;
+            max-width: 400px;
+            width: 100%;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.3);
+        }
+        .login-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        .login-header h1 {
+            color: #1a0a2e;
+            font-size: 2rem;
+            margin: 0;
+        }
+        .login-header p {
+            color: #64748b;
+            margin: 0.5rem 0 0;
+        }
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: #1a0a2e;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 0.875rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 1rem;
+        }
+        .btn {
+            width: 100%;
+            padding: 0.875rem;
+            background: linear-gradient(135deg, #1a0a2e 0%, #3d1a5c 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .flash {
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border-radius: 12px;
+            text-align: center;
+        }
+        .flash.danger {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        .flash.success {
+            background: #d1fae5;
+            color: #065f46;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-card">
+        <div class="login-header">
+            <h1>👑 Super Admin</h1>
+            <p>System Administration</p>
+        </div>
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="flash {{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        
+        <form method="post">
+            <div class="form-group">
+                <label for="login_code">Access Code</label>
+                <input type="password" id="login_code" name="login_code" placeholder="Enter your access code" required>
+            </div>
+            <button type="submit" class="btn">Login</button>
+        </form>
+    </div>
+</body>
+</html>

@@ -1,0 +1,63 @@
+{% extends "superadmin/base.html" %}
+{% block title %}Edit User - Super Admin{% endblock %}
+{% block page_title %}Edit User{% endblock %}
+{% block content %}
+<div class="portal-section">
+    <div class="section-header">
+        <a href="{{ url_for('superadmin_users') }}" class="btn btn-outline-secondary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="19" y1="12" x2="5" y2="12"/>
+                <polyline points="12 19 5 12 12 5"/>
+            </svg>
+            Back to Users
+        </a>
+    </div>
+    
+    <form method="post" class="form-container">
+        <div class="form-group">
+            <label for="name">Full Name *</label>
+            <input type="text" id="name" name="name" required value="{{ user.name }}">
+        </div>
+        
+        <div class="form-group">
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email" value="{{ user.email or '' }}">
+        </div>
+        
+        <div class="form-group">
+            <label for="role">Role *</label>
+            <select id="role" name="role" required>
+                <option value="admin" {% if user.role == 'admin' %}selected{% endif %}>Admin</option>
+                <option value="teacher" {% if user.role == 'teacher' %}selected{% endif %}>Teacher</option>
+                <option value="parent" {% if user.role == 'parent' %}selected{% endif %}>Parent</option>
+                <option value="student" {% if user.role == 'student' %}selected{% endif %}>Student</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="school_id">School</label>
+            <select id="school_id" name="school_id">
+                <option value="">No School</option>
+                {% for school in schools %}
+                <option value="{{ school.id }}" {% if user.school_id == school.id %}selected{% endif %}>{{ school.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="login_code">Login Code *</label>
+            <input type="text" id="login_code" name="login_code" required value="{{ user.login_code }}">
+        </div>
+        
+        <div class="form-group">
+            <label for="password">Password (leave blank to keep current)</label>
+            <input type="password" id="password" name="password" placeholder="Enter new password">
+        </div>
+        
+        <div class="form-actions">
+            <a href="{{ url_for('superadmin_users') }}" class="btn btn-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary">Save Changes</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

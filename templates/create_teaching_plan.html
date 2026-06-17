@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Create Teaching Plan - {{ session.school_name }}{% endblock %}
+{% block page_title %}Create Teaching Plan{% endblock %}
+{% block content %}
+<form method="post" enctype="multipart/form-data" class="form-section">
+   <legend>1. Administrative</legend>
+   <div class="form-grid">
+     <div class="form-field full-width"><label>Plan Title *</label><input name="title" required></div>
+     <div class="form-field"><label>Subject *</label>
+       <select name="subject" required>
+         <option value="">Select subject...</option>
+         {% for s in school_subjects %}<option value="{{ s.name }}">{{ s.name }}</option>{% endfor %}
+       </select>
+     </div>
+     <div class="form-field"><label>Grade *</label>
+       <select name="grade" required>
+         <option value="">Select grade...</option>
+         {% for g in grade_levels %}<option value="{{ g.name }}">{{ g.name }}</option>{% endfor %}
+       </select>
+     </div>
+     <div class="form-field"><label>Section *</label>
+       <select name="section" required>
+         <option value="">Select section...</option>
+         {% for s in sections %}<option value="{{ s.name }}">{{ s.name }}</option>{% endfor %}
+       </select>
+     </div>
+    <div class="form-field"><label>Plan Date</label><input name="plan_date" type="date"></div>
+    <div class="form-field"><label>Status</label>
+      <select name="status"><option value="draft">Draft</option><option value="published">Published</option><option value="archived">Archived</option></select>
+    </div>
+  </div>
+
+  <legend>2. Schedule</legend>
+  <div class="form-grid">
+    <div class="form-field"><label>Week Number</label>
+      <select name="week_number">
+        <option value="">Select week</option>
+        {% for w in range(1, 14) %}<option value="{{ w }}">Week {{ w }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="form-field"><label>Week Ending</label><input name="week_ending" type="date"></div>
+    <div class="form-field"><label>Day</label>
+      <select name="day_of_week"><option value="">Select</option>{% for d in ['Monday','Tuesday','Wednesday','Thursday','Friday'] %}<option value="{{ d }}">{{ d }}</option>{% endfor %}</select>
+    </div>
+    <div class="form-field"><label>Period & Duration</label><input name="period_duration" placeholder="e.g., Period 1, 50 mins"></div>
+    <div class="form-field"><label>Duration (weeks)</label><input name="duration" type="number" min="1" placeholder="e.g., 2"></div>
+    <div class="form-field"><label>Start Date</label><input name="start_date" type="date"></div>
+    <div class="form-field"><label>End Date</label><input name="end_date" type="date"></div>
+  </div>
+
+  <legend>3. Curriculum Standards & Benchmarks</legend>
+  <div class="form-grid">
+    <div class="form-field"><label>Strand</label><input name="strand" placeholder="Broad thematic area"></div>
+    <div class="form-field"><label>Sub-strand</label><input name="sub_strand" placeholder="Topic within strand"></div>
+    <div class="form-field full-width"><label>Content Standard</label><input name="content_standard" placeholder="Official syllabus code"></div>
+    <div class="form-field full-width"><label>Indicator</label><input name="indicator" placeholder="Specific learning focus"></div>
+    <div class="form-field full-width"><label>Performance Indicator</label><input name="performance_indicator" placeholder="What student should be able to do"></div>
+  </div>
+
+  <legend>4. Competencies & Resources</legend>
+  <div class="form-grid">
+    <div class="form-field"><label>Core Competencies</label><textarea name="core_competencies" rows="2"></textarea></div>
+    <div class="form-field"><label>Keywords</label><input name="keywords"></div>
+    <div class="form-field full-width"><label>TLM</label><textarea name="tlm" rows="2" placeholder="Visual aids, textbooks, realia, ICT tools"></textarea></div>
+    <div class="form-field full-width"><label>References</label><textarea name="references" rows="2" placeholder="Syllabuses and textbook pages"></textarea></div>
+  </div>
+
+  <legend>5. Instructional Phases</legend>
+  <div class="form-grid">
+    <div class="form-field full-width"><label>Phase 1: Starter / Introduction (5–10 minutes)</label><textarea name="starter_activities" rows="3"></textarea></div>
+    <div class="form-field full-width"><label>Phase 2: Main Learning Activities (30 minutes)</label><textarea name="main_activities" rows="4"></textarea></div>
+    <div class="form-field full-width"><label>Formative Assessment</label><textarea name="formative_assessment" rows="2"></textarea></div>
+    <div class="form-field full-width"><label>Phase 3: Plenary / Reflection (5 minutes)</label><textarea name="plenary_reflection" rows="3"></textarea></div>
+  </div>
+
+  <legend>6. Teacher Reflection</legend>
+  <div class="form-grid">
+    <div class="form-field full-width"><label>Teacher Reflection</label><textarea name="teacher_reflection" rows="3"></textarea></div>
+  </div>
+
+  <legend>7. Attachments</legend>
+  <div class="form-field">
+    <label>Attachment</label>
+    <input type="file" name="plan_attachment">
+    <small>PDF, DOC, DOCX, TXT, ZIP, RAR</small>
+  </div>
+
+  <div class="form-actions">
+    <button type="submit" class="primary-btn">Create Teaching Plan</button>
+  </div>
+</form>
+{% endblock %}

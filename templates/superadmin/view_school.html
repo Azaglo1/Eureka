@@ -1,0 +1,79 @@
+{% extends "superadmin/base.html" %}
+{% block title %}{{ school.name }} - Super Admin{% endblock %}
+{% block page_title %}{{ school.name }}{% endblock %}
+{% block content %}
+<div class="portal-section">
+    <div class="section-header">
+        <h2>🏫 {{ school.name }}</h2>
+        <div>
+            <a href="{{ url_for('superadmin_school_portal', school_id=school.id) }}" class="btn btn-primary">Open School Portal</a>
+            <a href="{{ url_for('superadmin_edit_school', school_id=school.id) }}" class="btn btn-warning">Edit</a>
+            <a href="{{ url_for('superadmin_schools') }}" class="btn btn-secondary">Back to Schools</a>
+        </div>
+    </div>
+    
+    <div class="stats-grid">
+        <div class="stat-card primary">
+            <h2>{{ student_count }}</h2>
+            <p>Students</p>
+        </div>
+        <div class="stat-card success">
+            <h2>{{ admin_count }}</h2>
+            <p>Admins</p>
+        </div>
+        <div class="stat-card info">
+            <h2>{{ teacher_count }}</h2>
+            <p>Teachers</p>
+        </div>
+    </div>
+    
+    <div class="detail-grid">
+        <div class="detail-item">
+            <span class="label">School Code</span>
+            <span class="value"><code>{{ school.school_code }}</code></span>
+        </div>
+        <div class="detail-item">
+            <span class="label">Description</span>
+            <span class="value">{{ school.description or 'No description' }}</span>
+        </div>
+    </div>
+</div>
+
+<div class="portal-section">
+    <h2>👥 Users in this School</h2>
+    {% if users %}
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Role</th>
+                    <th>Email</th>
+                    <th>Login Code</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in users %}
+                <tr>
+                    <td>{{ user.name }}</td>
+                    <td><span class="role-badge {{ user.role }}">{{ user.role }}</span></td>
+                    <td>{{ user.email or '-' }}</td>
+                    <td><code>{{ user.login_code }}</code></td>
+                    <td>
+                        {% if user.active %}
+                        <span class="status active">Active</span>
+                        {% else %}
+                        <span class="status inactive">Inactive</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p>No users found for this school.</p>
+    {% endif %}
+</div>
+{% endblock %}

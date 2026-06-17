@@ -1,0 +1,639 @@
+{% extends "base.html" %}
+{% block title %}Grades - EUREKA{% endblock %}
+{% block page_title %}Grade Recording{% endblock %}
+{% block content %}
+<div class="grades-dashboard">
+
+    <!-- Header -->
+    <div class="page-header-section grades-header">
+        <div class="header-content">
+            <div>
+                <h1>Grade Recording</h1>
+                <p>Enter and manage student assessment scores</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Two Column Layout -->
+    <div class="dashboard-grid">
+        <!-- Record Grade Form -->
+        <div class="card form-card">
+            <div class="card-header">
+                <h2 class="card-title">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="12" y1="5" x2="12" y2="19"/>
+                        <line x1="5" y1="12" x2="19" y2="12"/>
+                    </svg>
+                    Record New Grade
+                </h2>
+                <p class="card-subtitle">Enter scores for a student</p>
+            </div>
+
+            <form method="post" action="{{ url_for('record_grade') }}" class="grade-form">
+                <div class="form-field">
+                    <label for="student_id">Student *</label>
+                    <select id="student_id" name="student_id" required>
+                        <option value="">Select a student...</option>
+                        {% for student in students %}
+                        <option value="{{ student.id }}" {% if selected_student_id|string == student.id|string %}selected{% endif %}>
+                            {{ student.name }} ({{ student.student_number }})
+                            {% if student.grade %} - {{ student.grade }}{% endif %}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-field">
+                    <label for="subject">Subject *</label>
+                    <select id="subject" name="subject" required>
+                        <option value="">Select a subject...</option>
+                        {% for subject in subjects %}
+                        <option value="{{ subject }}" {% if selected_subject == subject %}selected{% endif %}>
+                            {{ subject }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-field">
+                        <label for="score">Score *</label>
+                        <input id="score" name="score" type="number" step="0.01" min="0" required 
+                               placeholder="Enter score" value="{{ request.form.score or '' }}" />
+                    </div>
+
+                    <div class="form-field">
+                        <label for="max_score">Max Score *</label>
+                        <input id="max_score" name="max_score" type="number" step="0.01" min="1" required 
+                               value="100" placeholder="100" />
+                    </div>
+                </div>
+
+                <div class="form-field">
+                    <label for="term">Term</label>
+                    <select id="term" name="term">
+                        <option value="">Select term...</option>
+                        {% for term in term_options %}
+                        <option value="{{ term }}" {% if request.form.term == term %}selected{% endif %}>
+                            {{ term }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-field">
+                    <label for="comments">Comments</label>
+                    <textarea id="comments" name="comments" rows="3" 
+                              placeholder="Optional: Add notes about this grade...">{{ request.form.comments or '' }}</textarea>
+                </div>
+
+                <button type="submit" class="primary-btn">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="12" y1="5" x2="12" y2="19"/>
+                        <line x1="5" y1="12" x2="19" y2="12"/>
+                    </svg>
+                    Record Grade
+                </button>
+            </form>
+        </div>
+
+        <!-- Grade Summary -->
+        <div class="card summary-card">
+            <div class="card-header">
+                <h2 class="card-title">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                    </svg>
+                    Grade Summary
+                </h2>
+                <p class="card-subtitle">Student performance overview</p>
+            </div>
+
+            {% if class_average is not none %}
+            <div class="average-display">
+                <div class="average-circle">
+                    <span class="average-value">{{ class_average }}%</span>
+                </div>
+                <p class="average-label">Class Average</p>
+            </div>
+            {% endif %}
+
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Rank</th>
+                            <th>Student</th>
+                            <th>Avg Score</th>
+                            <th>Grades</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for student in grade_summaries %}
+                        <tr>
+                            <td><strong>#{{ student.position }}</strong></td>
+                            <td>
+                                <div class="user-cell">
+                                    <div class="user-avatar-sm">{{ student.name[0]|upper }}</div>
+                                    <div>
+                                        <strong>{{ student.name }}</strong><br>
+                                        <small>{{ student.grade_level }} {{ student.section or '' }}</small>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                {% if student.avg_pct is not none %}
+                                <strong>{{ student.avg_pct }}%</strong>
+                                {% else %}
+                                <span class="no-grade">—</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ student.grade_count }} entries</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="4" class="empty-state">No grades recorded yet.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Grades -->
+    {% if recent_grades %}
+    <div class="card recent-card">
+        <div class="card-header">
+            <div>
+                <h2 class="card-title">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                    </svg>
+                    Recent Grades
+                </h2>
+                <p class="card-subtitle">Latest recorded assessment scores</p>
+            </div>
+            <div class="card-actions">
+                <a href="{{ url_for('download_grades_csv') }}" class="btn btn-outline-primary btn-sm">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <polyline points="7 10 12 15 17 10"/>
+                        <line x1="12" y1="15" x2="12" y2="3"/>
+                    </svg>
+                    Download CSV
+                </a>
+            </div>
+        </div>
+
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Student</th>
+                        <th>Subject</th>
+                        <th>Score</th>
+                        <th>Percentage</th>
+                        <th>Term</th>
+                        <th>Recorded By</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for grade in recent_grades %}
+                    <tr>
+                        <td>
+                            <strong>
+                                <a href="{{ url_for('view_student', student_id=grade.student_id) }}" class="student-link">
+                                    {{ grade.student_name }}
+                                </a>
+                            </strong>
+                        </td>
+                        <td>{{ grade.subject }}</td>
+                        <td>
+                            <span class="grade-badge {% if (grade.score / grade.max_score * 100) >= 70 %}pass{% elif (grade.score / grade.max_score * 100) >= 50 %}average{% else %}fail{% endif %}">
+                                {{ grade.score }}/{{ grade.max_score }}
+                            </span>
+                        </td>
+                        <td><strong>{{ (grade.score / grade.max_score * 100)|round(1) }}%</strong></td>
+                        <td>{{ grade.term or 'N/A' }}</td>
+                        <td>{{ grade.recorded_by_name }}</td>
+                        <td>{{ grade.created_at.strftime('%Y-%m-%d') if grade.created_at else '' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+
+<style>
+.grades-dashboard {
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+/* Header */
+.grades-header {
+    background: linear-gradient(135deg, var(--info) 0%, var(--primary-500) 100%);
+}
+
+/* Dashboard Grid */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+@media (max-width: 1024px) {
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Form Card */
+.form-card .card-title {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.grade-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.25rem;
+}
+
+.form-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.form-field label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--neutral-700);
+}
+
+.form-field input,
+.form-field select,
+.form-field textarea {
+    padding: 0.75rem 1rem;
+    border: 2px solid var(--neutral-200);
+    border-radius: var(--radius);
+    font-size: 0.95rem;
+    color: var(--neutral-900);
+    background: white;
+    transition: all var(--transition-fast);
+}
+
+.form-field input:focus,
+.form-field select:focus,
+.form-field textarea:focus {
+    outline: none;
+    border-color: var(--info);
+    box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.1);
+}
+
+.form-field textarea {
+    resize: vertical;
+    min-height: 80px;
+}
+
+.primary-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.875rem 1.75rem;
+    background: linear-gradient(135deg, var(--info) 0%, var(--primary-500) 100%);
+    color: white;
+    border: none;
+    border-radius: var(--radius);
+    font-weight: 600;
+    font-size: 0.95rem;
+    text-decoration: none;
+    transition: all var(--transition-normal);
+    cursor: pointer;
+    align-self: flex-start;
+}
+
+.primary-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(14, 165, 233, 0.4);
+}
+
+/* Summary Card */
+.summary-card .card-title {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.average-display {
+    text-align: center;
+    padding: 2rem 1rem;
+    margin-bottom: 1.5rem;
+    background: var(--neutral-50);
+    border-radius: var(--radius);
+}
+
+.average-circle {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background: var(--success);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 1rem;
+    position: relative;
+    opacity: 0.9;
+}
+
+.average-circle::before {
+    content: '';
+    position: absolute;
+    width: 100px;
+    height: 100px;
+    background: white;
+    border-radius: 50%;
+}
+
+.average-value {
+    position: relative;
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: var(--neutral-900);
+}
+
+.average-label {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--neutral-600);
+    margin: 0;
+}
+
+/* Spreadsheet Table */
+.table-wrapper {
+    overflow-x: auto;
+    border-radius: var(--radius);
+    border: 2px solid var(--neutral-300);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    margin-bottom: 1.5rem;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    font-size: 0.875rem;
+}
+
+/* Full grid borders */
+th, td {
+    padding: 0.625rem 0.75rem;
+    border: 1px solid var(--neutral-300);
+    text-align: left;
+}
+
+/* Header styling */
+th {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--neutral-700);
+    background: linear-gradient(180deg, var(--neutral-100) 0%, var(--neutral-50) 100%);
+    border-bottom: 2px solid var(--neutral-400);
+    border-top: none;
+    border-left: none;
+    border-right: none;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+/* First column header */
+th:first-child {
+    border-left: 1px solid var(--neutral-300);
+}
+
+/* Last column header */
+th:last-child {
+    border-right: 1px solid var(--neutral-300);
+}
+
+/* Zebra striping */
+tbody tr:nth-child(odd) {
+    background: white;
+}
+
+tbody tr:nth-child(even) {
+    background: var(--neutral-50);
+}
+
+/* Row hover */
+tbody tr:hover {
+    background: var(--primary-50);
+    transition: background 0.15s ease;
+}
+
+/* Cell styling */
+td {
+    color: var(--neutral-800);
+    font-variant-numeric: tabular-nums;
+}
+
+.user-cell {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.user-cell a {
+    color: var(--primary-600);
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.user-cell a:hover {
+    color: var(--primary-800);
+    text-decoration: underline;
+}
+
+/* Student link in grades table */
+.student-link {
+    color: var(--primary-600);
+    text-decoration: none;
+    font-weight: 600;
+    transition: color 0.15s ease;
+}
+
+.student-link:hover {
+    color: var(--primary-800);
+    text-decoration: underline;
+}
+
+/* Card actions */
+.card-actions {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+}
+
+.user-avatar-sm {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--info) 0%, var(--primary-500) 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.875rem;
+    color: white;
+    flex-shrink: 0;
+}
+
+.no-grade {
+    color: var(--neutral-400);
+    font-style: italic;
+}
+
+/* Grade Badges - Spreadsheet style */
+.grade-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    border: 1px solid transparent;
+    min-width: 60px;
+}
+
+.grade-badge.pass {
+    background: #d1fae5;
+    color: #065f46;
+    border-color: #34d399;
+}
+
+.grade-badge.average {
+    background: #fef3c7;
+    color: #92400e;
+    border-color: #fbbf24;
+}
+
+.grade-badge.fail {
+    background: #fee2e2;
+    color: #991b1b;
+    border-color: #f87171;
+}
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 2rem;
+    color: var(--neutral-500);
+    font-size: 0.875rem;
+}
+
+/* Responsive Spreadsheet */
+@media (max-width: 768px) {
+    .page-header-section {
+        padding: 1.25rem;
+    }
+
+    .page-header-section h1 {
+        font-size: 1.375rem;
+    }
+
+    .form-row {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+
+    .table-wrapper {
+        margin: 0 -0.5rem;
+        border-radius: 0;
+    }
+
+    th, td {
+        padding: 0.5rem 0.375rem;
+        font-size: 0.8125rem;
+    }
+
+    .user-avatar-sm {
+        width: 28px;
+        height: 28px;
+        font-size: 0.6875rem;
+    }
+
+    .grade-badge {
+        padding: 0.1875rem 0.375rem;
+        font-size: 0.6875rem;
+        min-width: 56px;
+    }
+}
+
+@media (max-width: 480px) {
+    .page-header-section {
+        padding: 1rem;
+    }
+
+    .page-header-section h1 {
+        font-size: 1.125rem;
+    }
+
+    .form-field input,
+    .form-field select,
+    .form-field textarea {
+        padding: 0.625rem 0.875rem;
+        font-size: 0.875rem;
+    }
+
+    th, td {
+        padding: 0.375rem 0.25rem;
+        font-size: 0.75rem;
+    }
+
+    .user-cell {
+        gap: 0.5rem;
+    }
+
+    .user-avatar-sm {
+        width: 24px;
+        height: 24px;
+        font-size: 0.625rem;
+    }
+
+    .grade-badge {
+        padding: 0.125rem 0.25rem;
+        font-size: 0.625rem;
+        min-width: 50px;
+    }
+
+    .primary-btn {
+        width: 100%;
+        justify-content: center;
+        padding: 0.75rem 1rem;
+    }
+}
+</style>
+{% endblock %}

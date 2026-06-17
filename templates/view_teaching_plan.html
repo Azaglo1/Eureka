@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}{{ plan.title }} - Teaching Plans{% endblock %}
+{% block page_title %}{{ plan.title }}{% endblock %}
+{% block content %}
+<a href="{{ url_for('teaching_plans') }}" class="secondary-btn">Back</a>
+<div class="form-section" style="margin-top: 1rem;">
+  <legend>Details</legend>
+  <div class="form-grid">
+    <div class="form-field"><label>Subject</label><div>{{ plan.subject }}</div></div>
+    <div class="form-field"><label>Grade / Section</label><div>{{ plan.grade }} {{ plan.section }}</div></div>
+    <div class="form-field"><label>Week</label><div>{% if plan.week_number %}Week {{ plan.week_number }}{% if plan.week_ending %} (ends {{ plan.week_ending }}){% endif %}{% else %}N/A{% endif %}</div></div>
+    <div class="form-field"><label>Day / Period</label><div>{{ plan.day_of_week or 'N/A' }}{% if plan.period_duration %} · {{ plan.period_duration }}{% endif %}</div></div>
+    <div class="form-field"><label>Status</label><div><span class="status-badge status-{{ plan.status or 'draft' }}">{{ plan.status }}</span></div></div>
+    {% if plan.admin_approved %}
+    <div class="form-field"><label>Approval</label><div><span class="status-badge status-{{ plan.admin_approved }}">{{ plan.admin_approved|capitalize }}</span></div></div>
+    {% endif %}
+    {% if plan.admin_notes %}
+    <div class="form-field full-width"><label>Admin Notes</label><div>{{ plan.admin_notes }}</div></div>
+    {% endif %}
+    <div class="form-field"><label>Created</label><div>{{ plan.created_at }}</div></div>
+  </div>
+</div>
+
+{% if session.get('role') in ['admin', 'superadmin'] %}
+<div class="form-section">
+  <legend>Review</legend>
+  <form method="post" action="{{ url_for('approve_teaching_plan', plan_id=plan.id) }}">
+    <div class="form-grid">
+      <div class="form-field full-width">
+        <label>Notes for Teacher</label>
+        <textarea name="admin_notes" rows="4" style="width:100%; padding:0.75rem; border:1px solid #d1d5db; border-radius:0.375rem;">{{ plan.admin_notes or '' }}</textarea>
+      </div>
+      <div class="form-field">
+        <button type="submit" name="action" value="approve" class="primary-btn">Approve</button>
+        <button type="submit" name="action" value="decline" class="secondary-btn">Decline</button>
+      </div>
+    </div>
+  </form>
+</div>
+{% endif %}
+
+<div class="form-section">
+  <legend>Lesson Content</legend>
+  <div class="form-grid">
+    {% if plan.strand %}
+    <div class="form-field full-width"><label>Strand</label><div>{{ plan.strand }}</div></div>
+    {% endif %}
+    {% if plan.sub_strand %}
+    <div class="form-field full-width"><label>Sub-strand</label><div>{{ plan.sub_strand }}</div></div>
+    {% endif %}
+    {% if plan.content_standard %}
+    <div class="form-field full-width"><label>Content Standard</label><div>{{ plan.content_standard }}</div></div>
+    {% endif %}
+    {% if plan.indicator %}
+    <div class="form-field full-width"><label>Indicator</label><div>{{ plan.indicator }}</div></div>
+    {% endif %}
+    {% if plan.performance_indicator %}
+    <div class="form-field full-width"><label>Performance Indicator</label><div>{{ plan.performance_indicator }}</div></div>
+    {% endif %}
+    {% if plan.core_competencies %}
+    <div class="form-field full-width"><label>Core Competencies</label><div>{{ plan.core_competencies }}</div></div>
+    {% endif %}
+    {% if plan.keywords %}
+    <div class="form-field full-width"><label>Keywords</label><div>{{ plan.keywords }}</div></div>
+    {% endif %}
+    {% if plan.tlm %}
+    <div class="form-field full-width"><label>Teaching / Learning Resources</label><div>{{ plan.tlm }}</div></div>
+    {% endif %}
+    {% if plan.references %}
+    <div class="form-field full-width"><label>References</label><div>{{ plan.references }}</div></div>
+    {% endif %}
+    {% if plan.starter_activities %}
+    <div class="form-field full-width"><label>Introduction</label><div>{{ plan.starter_activities }}</div></div>
+    {% endif %}
+    {% if plan.main_activities %}
+    <div class="form-field full-width"><label>Main Activities</label><div>{{ plan.main_activities }}</div></div>
+    {% endif %}
+    {% if plan.formative_assessment %}
+    <div class="form-field full-width"><label>Formative Assessment</label><div>{{ plan.formative_assessment }}</div></div>
+    {% endif %}
+    {% if plan.plenary_reflection %}
+    <div class="form-field full-width"><label>Plenary / Reflection</label><div>{{ plan.plenary_reflection }}</div></div>
+    {% endif %}
+    {% if plan.teacher_reflection %}
+    <div class="form-field full-width"><label>Teacher Reflection</label><div>{{ plan.teacher_reflection }}</div></div>
+    {% endif %}
+  </div>
+</div>
+
+{% if plan.attachment_path %}
+<div class="form-section">
+  <legend>Attachment</legend>
+  <a href="{{ url_for('download_teaching_plan_attachment', plan_id=plan.id) }}" class="primary-btn">Download Attachment</a>
+</div>
+{% endif %}
+{% endblock %}

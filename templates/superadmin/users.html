@@ -1,0 +1,83 @@
+{% extends "superadmin/base.html" %}
+{% block title %}Manage Users - Super Admin{% endblock %}
+{% block page_title %}Manage Users{% endblock %}
+{% block content %}
+<div class="portal-section">
+    <div class="section-header">
+        <a href="{{ url_for('superadmin_panel') }}" class="btn btn-outline-secondary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="19" y1="12" x2="5" y2="12"/>
+                <polyline points="12 19 5 12 12 5"/>
+            </svg>
+            Back to Dashboard
+        </a>
+        <h2 style="margin-left: 1rem;">👥 All Users</h2>
+        <div style="display: flex; gap: 10px; margin-left: auto;">
+            <a href="{{ url_for('superadmin_import_users') }}" class="btn btn-outline-primary">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="17 8 12 3 7 8"/>
+                    <line x1="12" y1="3" x2="12" y2="15"/>
+                </svg>
+                Bulk Import
+            </a>
+            <a href="{{ url_for('superadmin_create_user') }}" class="btn btn-primary">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="12" y1="5" x2="12" y2="19"/>
+                    <line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+                Create New User
+            </a>
+        </div>
+    </div>
+    
+    {% if users %}
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Role</th>
+                    <th>School</th>
+                    <th>Email</th>
+                    <th>Login Code</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in users %}
+                <tr>
+                    <td><strong>{{ user.name }}</strong></td>
+                    <td><span class="role-badge {{ user.role }}">{{ user.role }}</span></td>
+                    <td>{{ user.school_name or 'No School' }}</td>
+                    <td>{{ user.email or '-' }}</td>
+                    <td><code>{{ user.login_code }}</code></td>
+                    <td>
+                        {% if user.active %}
+                        <span class="status active">Active</span>
+                        {% else %}
+                        <span class="status inactive">Inactive</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{{ url_for('superadmin_edit_user', user_id=user.id) }}" class="btn btn-sm btn-warning">Edit</a>
+                        {% if user.role != 'superadmin' %}
+                        <form action="{{ url_for('superadmin_delete_user', user_id=user.id) }}" method="post" style="display:inline" onsubmit="return confirm('Are you sure you want to deactivate this user?')">
+                            <button type="submit" class="btn btn-sm btn-warning">Deactivate</button>
+                        </form>
+                        <form action="{{ url_for('superadmin_permanently_delete_user', user_id=user.id) }}" method="post" style="display:inline" onsubmit="return confirm('WARNING: This will permanently delete user \'{{ user.name }}\' and ALL associated data. This action CANNOT be undone. Are you absolutely sure?')">
+                            <button type="submit" class="btn btn-sm btn-danger">Delete Permanently</button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="text-center">No users found. <a href="{{ url_for('superadmin_create_user') }}">Create the first user</a></p>
+    {% endif %}
+</div>
+{% endblock %}

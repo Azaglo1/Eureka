@@ -1,0 +1,811 @@
+{% extends "base.html" %}
+{% block title %}School Settings - {{ session.school_name }}{% endblock %}
+{% block page_title %}School Settings{% endblock %}
+{% block content %}
+<div class="settings-container">
+    <div class="page-header-section settings-header">
+        <div class="header-content">
+            <div>
+                <h1>School Settings</h1>
+                <p>Configure grade weights, sections, grade levels, and school information</p>
+            </div>
+        </div>
+    </div>
+
+    <form method="post" action="{{ url_for('admin_settings') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token is defined else '' }}">
+        {% if session.role == 'superadmin' %}
+        <input type="hidden" name="school_id" value="{{ request.args.get('school_id', '') }}">
+        {% endif %}
+
+        <!-- Grade Weight Settings Section -->
+        <div class="card settings-card">
+            <div class="card-header">
+                <div>
+                    <h2 class="card-title">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                        </svg>
+                        Grade Weight Configuration
+                    </h2>
+                    <p class="card-subtitle">Adjust the weight percentages for each grade component. Total must equal 100%.</p>
+                </div>
+            </div>
+
+            <div class="grade-weights-grid">
+                <div class="form-field">
+                    <label for="class_test_weight">Class Test Weight (%)</label>
+                    <input type="number" id="class_test_weight" name="class_test_weight" min="0" max="100" step="0.1" 
+                           value="{{ settings.class_test_weight * 100 if settings.class_test_weight else 20 }}" required>
+                    <small>Current default: 20%</small>
+                </div>
+
+                <div class="form-field">
+                    <label for="midterm_exam_weight">Midterm Exam Weight (%)</label>
+                    <input type="number" id="midterm_exam_weight" name="midterm_exam_weight" min="0" max="100" step="0.1" 
+                           value="{{ settings.midterm_exam_weight * 100 if settings.midterm_exam_weight else 20 }}" required>
+                    <small>Current default: 20%</small>
+                </div>
+
+                <div class="form-field">
+                    <label for="class_score_weight">Class Score Weight (%)</label>
+                    <input type="number" id="class_score_weight" name="class_score_weight" min="0" max="100" step="0.1" 
+                           value="{{ settings.class_score_weight * 100 if settings.class_score_weight else 10 }}" required>
+                    <small>Current default: 10%</small>
+                </div>
+
+                <div class="form-field">
+                    <label for="final_exam_weight">Final Exam Weight (%)</label>
+                    <input type="number" id="final_exam_weight" name="final_exam_weight" min="0" max="100" step="0.1" 
+                           value="{{ settings.final_exam_weight * 100 if settings.final_exam_weight else 50 }}" required>
+                    <small>Current default: 50%</small>
+                </div>
+            </div>
+
+            <div class="weight-total" id="weightTotal">
+                <strong>Total: <span id="totalPercentage">100</span>%</strong>
+                <span id="totalMessage" class="total-message"></span>
+            </div>
+        </div>
+
+        <!-- School Info Section -->
+        <div class="card settings-card">
+            <div class="card-header">
+                <div>
+                    <h2 class="card-title">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                            <polyline points="9 22 9 12 15 12 15 22"/>
+                        </svg>
+                        School Information
+                    </h2>
+                    <p class="card-subtitle">Update your school's basic information and academic settings.</p>
+                </div>
+            </div>
+
+            <div class="school-info-grid">
+                <div class="form-field">
+                    <label for="school_name">School Name</label>
+                    <input type="text" id="school_name" name="school_name" value="{{ school.name or '' }}" placeholder="Enter school name" required>
+                </div>
+
+                <div class="form-field">
+                    <label for="school_code">School Code</label>
+                    <input type="text" id="school_code" name="school_code" value="{{ school.school_code or '' }}" placeholder="e.g., GRACY001" required>
+                    <small>Used for login identification</small>
+                </div>
+
+                <div class="form-field full-width">
+                    <label for="school_description">School Description</label>
+                    <textarea id="school_description" name="school_description" rows="3" placeholder="Brief description of the school">{{ school.description or '' }}</textarea>
+                </div>
+
+                <div class="form-field">
+                    <label for="passing_marks">Passing Marks (%)</label>
+                    <input type="number" id="passing_marks" name="passing_marks" min="0" max="100" value="{{ settings.passing_marks if settings.passing_marks else 50 }}" required>
+                    <small>Minimum percentage to pass (default: 50%)</small>
+                </div>
+
+                <div class="form-field">
+                    <label for="academic_term">Current Academic Term</label>
+                    <select id="academic_term" name="academic_term" required>
+                        <option value="Term 1" {% if settings.academic_term == 'Term 1' %}selected{% endif %}>Term 1</option>
+                        <option value="Term 2" {% if settings.academic_term == 'Term 2' %}selected{% endif %}>Term 2</option>
+                        <option value="Term 3" {% if settings.academic_term == 'Term 3' %}selected{% endif %}>Term 3</option>
+                        <option value="Semester 1" {% if settings.academic_term == 'Semester 1' %}selected{% endif %}>Semester 1</option>
+                        <option value="Semester 2" {% if settings.academic_term == 'Semester 2' %}selected{% endif %}>Semester 2</option>
+                    </select>
+                </div>
+
+                <div class="form-field">
+                    <label for="attendance_term_weeks">Attendance Term Weeks</label>
+                    <input type="number" id="attendance_term_weeks" name="attendance_term_weeks" min="1" max="20" value="{{ settings.attendance_term_weeks if settings.attendance_term_weeks else 12 }}" required>
+                    <small>Number of weeks in the current term (used for cumulative attendance totals)</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sections Management Section -->
+        <div class="card settings-card">
+            <div class="card-header">
+                <div>
+                    <h2 class="card-title">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                            <polyline points="9 22 9 12 15 12 15 22"/>
+                        </svg>
+                        Class Sections Management
+                    </h2>
+                    <p class="card-subtitle">Add or remove sections used in your school. Sections are used to organize students within grades.</p>
+                </div>
+            </div>
+
+            <div class="sections-management">
+                <div class="add-section-form">
+                    <div class="form-field">
+                        <label for="new_section">Add New Section</label>
+                        <div class="input-with-button">
+                            <input type="text" id="new_section" name="new_section" placeholder="Enter section name (e.g., A, B, Gold, Red)">
+                            <button type="submit" name="action" value="add_section" class="primary-btn" formnovalidate>Add Section</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="sections-list-container">
+                    <h3 class="sections-subtitle">Current Sections</h3>
+                    {% if sections %}
+                    <div class="sections-grid">
+                        {% for section in sections %}
+                        <div class="section-item">
+                            <span class="section-name">{{ section.name }}</span>
+                            <input type="hidden" name="section_id" value="{{ section.id }}">
+                                <button type="submit" name="action" value="remove_section" class="btn-icon btn-outline btn-danger" title="Remove" formnovalidate onclick="return confirm('Are you sure you want to remove this section? Students assigned to this section will need to be reassigned.')">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="18" y1="6" x2="6" y2="18"/>
+                                    <line x1="6" y1="6" x2="18" y2="18"/>
+                                </svg>
+                            </button>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="empty-state">No custom sections defined. Add sections below to organize your students.</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Grade Levels Management Section -->
+        <div class="card settings-card">
+            <div class="card-header">
+                <div>
+                    <h2 class="card-title">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M22 10v6M2 10l10-5 10 5-10 5z"/>
+                            <path d="M6 12v5c3 3 9 3 12 0v-5"/>
+                        </svg>
+                        Grade Levels Management
+                    </h2>
+                    <p class="card-subtitle">Manage the grade levels used in your school (e.g., KG1, KG2, Grade 1, Grade 2).</p>
+                </div>
+            </div>
+
+            <div class="grade-levels-management">
+                <div class="add-grade-form">
+                    <div class="form-field">
+                        <label for="new_grade_level">Add New Grade Level</label>
+                        <div class="input-with-button">
+                            <input type="text" id="new_grade_level" name="new_grade_level" placeholder="Enter grade level (e.g., Pre-KG, Grade 8, Grade 12)">
+                            <button type="submit" name="action" value="add_grade" class="primary-btn" formnovalidate>Add Grade</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grades-list-container">
+                    <h3 class="grades-subtitle">Current Grade Levels</h3>
+                    {% if grade_levels %}
+                    <div class="grades-grid">
+                        {% for grade in grade_levels %}
+                        <div class="grade-item">
+                            <span class="grade-name">{{ grade.name }}</span>
+                            <input type="hidden" name="grade_id" value="{{ grade.id }}">
+                                <button type="submit" name="action" value="remove_grade" class="btn-icon btn-outline btn-danger" title="Remove" formnovalidate onclick="return confirm('Are you sure you want to remove this grade level? Students assigned to this grade will need to be reassigned.')">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="18" y1="6" x2="6" y2="18"/>
+                                    <line x1="6" y1="6" x2="18" y2="18"/>
+                                </svg>
+                            </button>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="empty-state">No custom grade levels defined. Add grade levels below.</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Subjects Management Section -->
+        <div class="card settings-card">
+            <div class="card-header">
+                <div>
+                    <h2 class="card-title">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+                        </svg>
+                        Subjects Management
+                    </h2>
+                    <p class="card-subtitle">Manage subjects available in your school and assign them to specific classes.</p>
+                </div>
+            </div>
+
+            <div class="subjects-management">
+                <div class="form-field full-width">
+                    <label for="new_subject">Add New Subject</label>
+                    <div class="input-with-button">
+                        <input type="text" id="new_subject" name="new_subject" placeholder="Enter subject name (e.g., Mathematics, English, Science)">
+                            <button type="submit" name="action" value="add_subject" class="primary-btn" formnovalidate>Add Subject</button>
+                    </div>
+                </div>
+
+                <div class="subjects-list-container">
+                    <h3 class="subjects-subtitle">All Subjects</h3>
+                    {% if school_subjects %}
+                    <div class="subjects-grid">
+                        {% for subject in school_subjects %}
+                        <div class="subject-item">
+                            <span class="subject-name">{{ subject.name }}</span>
+                            <input type="hidden" name="subject_id" value="{{ subject.id }}">
+                                <button type="submit" name="action" value="remove_subject" class="btn-icon btn-outline btn-danger" title="Remove" formnovalidate onclick="return confirm('Are you sure you want to remove this subject? It will also be removed from all classes.')">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="18" y1="6" x2="6" y2="18"/>
+                                    <line x1="6" y1="6" x2="18" y2="18"/>
+                                </svg>
+                            </button>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="empty-state">No subjects defined yet. Add subjects above to assign to classes.</div>
+                    {% endif %}
+                </div>
+
+                <hr style="margin: 2rem 0; border: 1px solid #e5e7eb;">
+
+                <div class="class-subject-assignment">
+                    <h3 class="subjects-subtitle">Assign Subjects to Class</h3>
+                    <div class="assignment-form-grid">
+                        <div class="form-field">
+                            <label for="assign_grade">Class/Grade</label>
+                            <select id="assign_grade" name="assign_grade">
+                                <option value="">Select class...</option>
+                                {% for grade in grade_levels %}
+                                <option value="{{ grade.name }}">{{ grade.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="form-field">
+                            <label for="assign_section">Section (Optional)</label>
+                            <select id="assign_section" name="assign_section">
+                                <option value="">All Sections</option>
+                                {% for section in sections %}
+                                <option value="{{ section.name }}">{{ section.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="form-field">
+                            <label for="assign_subject">Subject</label>
+                            <select id="assign_subject" name="assign_subject" required>
+                                <option value="">Select subject...</option>
+                                {% for subject in school_subjects %}
+                                <option value="{{ subject.name }}">{{ subject.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="form-field">
+                            <label for="assign_subject_weight">Subject Weight in Grade (Optional)</label>
+                            <input type="number" id="assign_subject_weight" name="assign_subject_weight" min="0" max="100" step="0.1" placeholder="e.g., 25" value="100">
+                            <small>Percentage contribution of this subject to final grade (default: 100%)</small>
+                        </div>
+
+                        <div class="form-field" style="display: flex; align-items: flex-end;">
+                            <button type="submit" name="action" value="assign_subject_to_class" class="primary-btn" style="width: 100%;" formnovalidate>Add Subject to Class</button>
+                        </div>
+                    </div>
+
+                    <div class="class-subject-list" style="margin-top: 1.5rem;">
+                        {% if class_subjects %}
+                        {% set current_grade = '' %}
+                        {% set current_section = '' %}
+                        {% for cs in class_subjects %}
+                        {% if current_grade != cs.grade_level or current_section != (cs.section or '') %}
+                        {% if current_grade != '' %}
+                        </div>
+                        {% endif %}
+                        {% set current_grade = cs.grade_level %}
+                        {% set current_section = cs.section or '' %}
+                        <div class="class-subject-group">
+                            <h4 class="class-subject-title">{{ cs.grade_level }} {% if cs.section %}- Section {{ cs.section }}{% else %} - All Sections{% endif %}</h4>
+                            <div class="class-subjects-grid">
+                        {% endif %}
+                            <div class="class-subject-item">
+                                <span>{{ cs.subject }}</span>
+                                <input type="hidden" name="class_subject_id" value="{{ cs.id }}">
+                                <button type="submit" name="action" value="remove_class_subject" class="btn-icon btn-outline btn-danger" title="Remove" formnovalidate onclick="return confirm('Remove {{ cs.subject }} from {{ cs.grade_level }} {% if cs.section %}Section {{ cs.section }}{% else %}All Sections{% endif %}?')">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <line x1="18" y1="6" x2="6" y2="18"/>
+                                        <line x1="6" y1="6" x2="18" y2="18"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        {% endfor %}
+                        {% if current_grade != '' %}
+                        </div>
+                        </div>
+                        {% endif %}
+                        {% else %}
+                        <div class="empty-state">No subjects assigned to classes yet. Assign subjects above.</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Email Settings Section -->
+        <div class="card settings-card">
+            <div class="card-header">
+                <div>
+                    <h2 class="card-title">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                            <polyline points="22,6 12,13 2,6"/>
+                        </svg>
+                        Email Settings
+                    </h2>
+                    <p class="card-subtitle">Configure SMTP settings for sending emails (notifications, reports, etc.)</p>
+                </div>
+            </div>
+
+            <div class="settings-actions">
+                <button type="submit" name="action" value="save_email_settings" class="primary-btn">Save Email Settings</button>
+            </div>
+
+            <div class="communication-grid">
+                <div class="form-field">
+                    <label for="sender_name">Sender Name</label>
+                    <input type="text" id="sender_name" name="sender_name" value="{{ settings.sender_name or 'School Administration' }}" placeholder="e.g., Eureka School">
+                </div>
+
+                <div class="form-field">
+                    <label for="smtp_server">SMTP Server</label>
+                    <input type="text" id="smtp_server" name="smtp_server" value="{{ settings.smtp_server or 'smtp.gmail.com' }}" placeholder="smtp.gmail.com">
+                </div>
+
+                <div class="form-field">
+                    <label for="smtp_port">SMTP Port</label>
+                    <input type="number" id="smtp_port" name="smtp_port" value="{{ settings.smtp_port or 587 }}" placeholder="587">
+                </div>
+
+                <div class="form-field">
+                    <label for="smtp_email">SMTP Email Address</label>
+                    <input type="email" id="smtp_email" name="smtp_email" value="{{ settings.smtp_email or '' }}" placeholder="school@example.com">
+                </div>
+
+                <div class="form-field full-width">
+                    <label for="smtp_password">SMTP Password / App Password</label>
+                    <input type="password" id="smtp_password" name="smtp_password" value="{{ settings.smtp_password or '' }}" placeholder="Enter app password">
+                    <small>Use an app password for Gmail. Keep this secure.</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- SMS Settings Section -->
+        <div class="card settings-card">
+            <div class="card-header">
+                <div>
+                    <h2 class="card-title">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+                        </svg>
+                        SMS Settings (Twilio)
+                    </h2>
+                    <p class="card-subtitle">Configure Twilio for sending SMS notifications to parents and staff</p>
+                </div>
+            </div>
+
+            <div class="settings-actions">
+                <button type="submit" name="action" value="save_sms_settings" class="primary-btn">Save SMS Settings</button>
+            </div>
+
+            <div class="communication-grid">
+                <div class="form-field">
+                    <label for="twilio_account_sid">Twilio Account SID</label>
+                    <input type="text" id="twilio_account_sid" name="twilio_account_sid" value="{{ settings.twilio_account_sid or '' }}" placeholder="AC...">
+                </div>
+
+                <div class="form-field">
+                    <label for="twilio_auth_token">Twilio Auth Token</label>
+                    <input type="password" id="twilio_auth_token" name="twilio_auth_token" value="{{ settings.twilio_auth_token or '' }}" placeholder="Enter auth token">
+                </div>
+
+                <div class="form-field full-width">
+                    <label for="twilio_from_number">Twilio Phone Number (e.g., +233546859356)</label>
+                    <input type="text" id="twilio_from_number" name="twilio_from_number" value="{{ settings.twilio_from_number or '' }}" placeholder="+233546859356">
+                    <small>Must be an SMS-capable number from your Twilio account</small>
+                </div>
+
+                <div class="form-field full-width">
+                    <label for="twilio_messaging_service_sid">Twilio Messaging Service SID (Optional)</label>
+                    <input type="text" id="twilio_messaging_service_sid" name="twilio_messaging_service_sid" value="{{ settings.twilio_messaging_service_sid or '' }}" placeholder="MG...">
+                    <small>Alternative to phone number - use Messaging Service SID for sending SMS</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- WhatsApp Settings Section -->
+        <div class="card settings-card">
+            <div class="card-header">
+                <div>
+                    <h2 class="card-title">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+                        </svg>
+                        WhatsApp Business API Settings
+                    </h2>
+                    <p class="card-subtitle">Configure WhatsApp Business API for sending messages</p>
+                </div>
+            </div>
+
+            <div class="settings-actions">
+                <button type="submit" name="action" value="save_whatsapp_settings" class="primary-btn">Save WhatsApp Settings</button>
+            </div>
+
+            <div class="communication-grid">
+                <div class="form-field">
+                    <label for="whatsapp_access_token">WhatsApp Access Token</label>
+                    <input type="password" id="whatsapp_access_token" name="whatsapp_access_token" value="{{ settings.whatsapp_access_token or '' }}" placeholder="Enter access token">
+                </div>
+
+                <div class="form-field">
+                    <label for="whatsapp_phone_number_id">WhatsApp Phone Number ID</label>
+                    <input type="text" id="whatsapp_phone_number_id" name="whatsapp_phone_number_id" value="{{ settings.whatsapp_phone_number_id or '' }}" placeholder="Phone Number ID">
+                </div>
+            </div>
+        </div>
+
+        <!-- General Settings Section -->
+        <div class="card settings-card">
+            <div class="card-header">
+                <div>
+                    <h2 class="card-title">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="3"/>
+                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                        </svg>
+                        General Information
+                    </h2>
+                    <p class="card-subtitle">School contact information displayed on reports and communications</p>
+                </div>
+            </div>
+
+            <div class="settings-actions">
+                <button type="submit" name="action" value="save_general_settings" class="primary-btn">Save General Settings</button>
+            </div>
+
+            <div class="communication-grid">
+                <div class="form-field">
+                    <label for="school_email">School Email</label>
+                    <input type="email" id="school_email" name="school_email" value="{{ settings.school_email or '' }}" placeholder="info@school.edu.gh">
+                </div>
+
+                <div class="form-field">
+                    <label for="school_phone">School Phone</label>
+                    <input type="text" id="school_phone" name="school_phone" value="{{ settings.school_phone or '' }}" placeholder="+233 30 123 4567">
+                </div>
+
+                <div class="form-field full-width">
+                    <label for="school_address">School Address</label>
+                    <textarea id="school_address" name="school_address" rows="2" placeholder="P.O. Box 123, City, Region">{{ settings.school_address or '' }}</textarea>
+                </div>
+
+                <div class="form-field">
+                    <label for="school_website">School Website</label>
+                    <input type="url" id="school_website" name="school_website" value="{{ settings.school_website or '' }}" placeholder="https://www.school.edu.gh">
+                </div>
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" name="action" value="save_weights" class="primary-btn">Save All Settings</button>
+        </div>
+    </form>
+</div>
+
+<style>
+.settings-container {
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
+.settings-header {
+    background: linear-gradient(135deg, var(--primary-500) 0%, var(--secondary-500) 100%);
+    color: white;
+    border-radius: 24px;
+    padding: 2rem 2.5rem;
+    margin-bottom: 1.75rem;
+}
+
+.settings-header .header-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.settings-header h1 {
+    margin: 0;
+    font-size: 2.1rem;
+}
+
+.settings-header p {
+    margin: 0.5rem 0 0;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.settings-card {
+    margin-bottom: 1.75rem;
+}
+
+.settings-card .card-title {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.grade-weights-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.25rem;
+    padding: 1.5rem;
+}
+
+.school-info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.25rem;
+    padding: 1.5rem;
+}
+
+.communication-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.25rem;
+    padding: 1.5rem;
+}
+
+.settings-actions {
+    padding: 1rem 1.5rem;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.form-field label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--neutral-700);
+    margin-bottom: 0.25rem;
+    display: block;
+}
+
+.form-field input,
+.form-field textarea,
+.form-field select {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: 2px solid var(--neutral-200);
+    border-radius: var(--radius);
+    font-size: 0.95rem;
+    box-sizing: border-box;
+    font-family: inherit;
+}
+
+.form-field input:focus,
+.form-field textarea:focus,
+.form-field select:focus {
+    outline: none;
+    border-color: var(--primary-500);
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+}
+
+.form-field.full-width {
+    grid-column: 1 / -1;
+}
+
+.form-field small {
+    color: var(--neutral-500);
+    font-size: 0.75rem;
+    margin-top: 0.25rem;
+    display: block;
+}
+
+.weight-total {
+    padding: 1rem 1.5rem;
+    background: var(--neutral-50);
+    border-top: 1px solid var(--neutral-200);
+    font-size: 1.1rem;
+}
+
+.total-message {
+    margin-left: 1rem;
+    font-size: 0.9rem;
+}
+
+.total-message.valid {
+    color: var(--success);
+}
+
+.total-message.invalid {
+    color: var(--danger);
+}
+
+.sections-management,
+.grade-levels-management {
+    padding: 1.5rem;
+}
+
+.input-with-button {
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-end;
+}
+
+.input-with-button input {
+    flex: 1;
+}
+
+.sections-subtitle,
+.grades-subtitle {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--neutral-800);
+    margin: 1.5rem 0 1rem 0;
+}
+
+.sections-grid,
+.grades-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.section-item,
+.grade-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: var(--primary-50);
+    padding: 0.5rem 0.75rem;
+    border-radius: var(--radius);
+    font-weight: 500;
+}
+
+.section-name,
+.grade-name {
+    color: var(--primary-700);
+}
+
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    padding: 1.5rem;
+    margin-top: 1rem;
+}
+
+.btn-icon.btn-danger {
+    color: var(--danger);
+    border-color: var(--danger);
+    width: 28px;
+    height: 28px;
+    padding: 0;
+}
+
+.btn-icon.btn-danger:hover {
+    background: var(--danger-light);
+}
+
+.empty-state {
+    color: var(--neutral-500);
+    font-style: italic;
+    padding: 1rem 0;
+}
+
+.subjects-subtitle {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--neutral-800);
+    margin: 1.5rem 0 1rem 0;
+}
+
+.subjects-grid,
+.class-subjects-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.subject-item,
+.class-subject-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: var(--primary-50);
+    padding: 0.5rem 0.75rem;
+    border-radius: var(--radius);
+    font-weight: 500;
+}
+
+.subject-name,
+.class-subject-item span {
+    color: var(--primary-700);
+    font-weight: 500;
+}
+
+.class-subject-group {
+    margin-bottom: 1rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.class-subject-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--neutral-800);
+    margin-bottom: 0.75rem;
+    margin-top: 0;
+}
+
+.assignment-form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.class-subject-list {
+    margin-top: 1.5rem;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const weightInputs = document.querySelectorAll('input[name*="_weight"]');
+    const totalSpan = document.getElementById('totalPercentage');
+    const totalMessage = document.getElementById('totalMessage');
+
+    function updateTotal() {
+        let total = 0;
+        weightInputs.forEach(input => {
+            total += parseFloat(input.value) || 0;
+        });
+        totalSpan.textContent = total.toFixed(1);
+
+        if (Math.abs(total - 100) < 0.1) {
+            totalMessage.textContent = '✓ Valid';
+            totalMessage.className = 'total-message valid';
+        } else {
+            totalMessage.textContent = 'Total must equal 100%';
+            totalMessage.className = 'total-message invalid';
+        }
+    }
+
+    weightInputs.forEach(input => {
+        input.addEventListener('input', updateTotal);
+    });
+
+    updateTotal();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% block title %}View Teacher: {{ teacher.name }} - Eureka{% endblock %}
+{% block page_title %}View Teacher: {{ teacher.name }}{% endblock %}
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <div>
+            <h2 class="card-title">Teacher Details</h2>
+            <p class="card-subtitle">View teacher information and assignments</p>
+        </div>
+        <a href="{{ url_for('admin_panel') }}" class="secondary-btn">Back to User Management</a>
+    </div>
+
+    <!-- Teacher Profile -->
+    <section style="background: var(--neutral-50); padding: 1.5rem; border-radius: 8px; margin-bottom: 2rem;">
+        <h3 style="margin-bottom: 1rem;">Teacher Profile</h3>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem;">
+            <div class="form-field">
+                <label>Name</label>
+                <p style="font-weight: 600; font-size: 1.1rem;">{{ teacher.name }}</p>
+            </div>
+            <div class="form-field">
+                <label>Email</label>
+                <p>{{ teacher.email or 'No email provided' }}</p>
+            </div>
+            <div class="form-field">
+                <label>Login Code</label>
+                <p>{{ teacher.login_code }}</p>
+            </div>
+            <div class="form-field">
+                <label>School</label>
+                <p>{{ teacher.school_name or 'No school assigned' }}</p>
+            </div>
+            <div class="form-field">
+                <label>Role</label>
+                <span class="status-badge {{ teacher.role }}">{{ teacher.role|replace('_', ' ')|title }}</span>
+            </div>
+            <div class="form-field">
+                <label>Status</label>
+                <span class="status-badge {{ 'present' if teacher.active else 'absent' }}">
+                    {{ 'Active' if teacher.active else 'Inactive' }}
+                </span>
+            </div>
+        </div>
+    </section>
+
+    <!-- Teacher Class Assignments -->
+    <section style="margin-bottom: 2rem;">
+        <h3 style="margin-bottom: 1rem;">Class Assignments</h3>
+        {% if teacher_assignments %}
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Grade</th>
+                        <th>Section</th>
+                        <th>Subject</th>
+                        <th>Responsibility</th>
+                        <th>Primary</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for assignment in teacher_assignments %}
+                    <tr>
+                        <td>{{ assignment.grade or 'All' }}</td>
+                        <td>{{ assignment.section or 'All' }}</td>
+                        <td>{{ assignment.subject or 'N/A' }}</td>
+                        <td>{{ assignment.responsibility }}</td>
+                        <td>
+                            {% if assignment.is_primary %}
+                            <span class="status-badge present">Primary</span>
+                            {% else %}
+                            <span class="status-badge">Secondary</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="status-badge {{ 'present' if assignment.active else 'absent' }}">
+                                {{ 'Active' if assignment.active else 'Inactive' }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p style="text-align: center; padding: 2rem; color: var(--neutral-400);">
+            No class assignments found for this teacher.
+        </p>
+        {% endif %}
+    </section>
+
+    <!-- Assignments Created by Teacher -->
+    <section>
+        <h3 style="margin-bottom: 1rem;">Assignments Created</h3>
+        {% if created_assignments %}
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Subject</th>
+                        <th>Grade</th>
+                        <th>Section</th>
+                        <th>Due Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for assignment in created_assignments %}
+                    <tr>
+                        <td><strong>{{ assignment.title }}</strong></td>
+                        <td>{{ assignment.subject }}</td>
+                        <td>{{ assignment.grade or '-' }}</td>
+                        <td>{{ assignment.section or '-' }}</td>
+                        <td>{{ assignment.due_date }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p style="text-align: center; padding: 2rem; color: var(--neutral-400);">
+            No assignments created by this teacher.
+        </p>
+        {% endif %}
+    </section>
+</div>
+{% endblock %}

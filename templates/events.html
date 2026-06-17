@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Events - Eureka{% endblock %}
+{% block page_title %}School Events{% endblock %}
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <div>
+            <h2 class="card-title">Upcoming Events</h2>
+            <p class="card-subtitle">Important dates and activities</p>
+        </div>
+        <div class="card-actions">
+            <a href="{{ url_for('create_event') }}" class="btn-primary">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>
+                Create Event
+            </a>
+        </div>
+    </div>
+
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Event Title</th>
+                    <th>Date</th>
+                    <th>Time</th>
+                    <th>Location</th>
+                    <th>Type</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for event in events %}
+                <tr>
+                    <td><strong>{{ event.title }}</strong></td>
+                    <td>{{ event.event_date }}</td>
+                    <td>{{ event.start_time or 'All day' }}{% if event.end_time %} - {{ event.end_time }}{% endif %}</td>
+                    <td>{{ event.location or '-' }}</td>
+                    <td><span class="status-badge {{ event.event_type }}">{{ event.event_type|title }}</span></td>
+                    <td>
+                        <form method="post" action="{{ url_for('delete_event', event_id=event.id) }}" class="inline-delete-form" onsubmit="return confirm('Delete this event?');">
+                            <button type="submit" class="action-btn delete-btn">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" style="text-align: center; padding: 2rem; color: var(--neutral-400);">
+                        No upcoming events
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

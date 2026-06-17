@@ -1,0 +1,95 @@
+{% extends "superadmin/base.html" %}
+{% block title %}Statistics - Super Admin{% endblock %}
+{% block page_title %}System Statistics{% endblock %}
+{% block content %}
+<div class="portal-section">
+    <div class="section-header">
+        <a href="{{ url_for('superadmin_panel') }}" class="btn btn-outline-secondary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="19" y1="12" x2="5" y2="12"/>
+                <polyline points="12 19 5 12 12 5"/>
+            </svg>
+            Back to Dashboard
+        </a>
+        <h2 style="margin-left: 1rem;">📊 System Overview</h2>
+    </div>
+    <div class="stats-grid">
+        <div class="stat-card primary">
+            <h2>{{ stats.total_schools }}</h2>
+            <p>Total Schools</p>
+        </div>
+        <div class="stat-card success">
+            <h2>{{ stats.total_users }}</h2>
+            <p>Total Users</p>
+        </div>
+        <div class="stat-card info">
+            <h2>{{ stats.total_students }}</h2>
+            <p>Total Students</p>
+        </div>
+        <div class="stat-card warning">
+            <h2>{{ stats.total_admins }}</h2>
+            <p>Admins</p>
+        </div>
+        <div class="stat-card">
+            <h2>{{ stats.total_teachers }}</h2>
+            <p>Teachers</p>
+        </div>
+        <div class="stat-card">
+            <h2>{{ stats.total_parents }}</h2>
+            <p>Parents</p>
+        </div>
+    </div>
+</div>
+
+<div class="portal-section">
+    <h2>👥 Users per School</h2>
+    {% if users_per_school %}
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>School</th>
+                    <th>User Count</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in users_per_school %}
+                <tr>
+                    <td>{{ item.name }}</td>
+                    <td>{{ item.user_count }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p>No data available.</p>
+    {% endif %}
+</div>
+
+<div class="portal-section">
+    <h2>🎓 Students per School</h2>
+    {% if students_per_school %}
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>School</th>
+                    <th>Student Count</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in students_per_school %}
+                <tr>
+                    <td>{{ item.name }}</td>
+                    <td>{{ item.student_count }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p>No data available.</p>
+    {% endif %}
+</div>
+{% endblock %}
