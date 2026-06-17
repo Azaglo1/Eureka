@@ -229,3 +229,4 @@ This project is open source and available under the MIT License.
 - Built for educational institutions seeking digital transformation
 - Designed with teachers, parents, and students in mind
 - Inspired by the need for better school-home communication
+
