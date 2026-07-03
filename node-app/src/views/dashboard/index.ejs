@@ -1,0 +1,41 @@
+<div class="d-flex align-items-center justify-content-between mb-4">
+  <div>
+    <h1 class="h3 mb-1">Dashboard</h1>
+    <p class="text-secondary mb-0">Node.js foundation is running. Modules can now be migrated one at a time.</p>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-md-3">
+    <div class="card stat-card">
+      <div class="card-body">
+        <div class="text-secondary small">School</div>
+        <div class="h5 mb-0"><%= currentUser.schoolName || "Global" %></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card stat-card">
+      <div class="card-body">
+        <div class="text-secondary small">Role</div>
+        <div class="h5 mb-0 text-capitalize"><%= currentUser.role %></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card stat-card">
+      <div class="card-body">
+        <div class="text-secondary small">Database</div>
+        <div class="h5 mb-0">Prisma</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card stat-card">
+      <div class="card-body">
+        <div class="text-secondary small">Frontend</div>
+        <div class="h5 mb-0">EJS + Bootstrap</div>
+      </div>
+    </div>
+  </div>
+</div>

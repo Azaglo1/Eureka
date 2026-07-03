@@ -26,8 +26,8 @@ A comprehensive, modern school management system with role-based access control,
 ## 🚀 Getting Started
 
 ### Prerequisites
-- Python 3.7+
-- SQLite3 (included with Python)
+- Node.js 20+
+- PostgreSQL
 
 ### Installation
 
@@ -38,40 +38,19 @@ copy .env.example .env
 
 2. Install dependencies:
 ```bash
-pip install -r requirements.txt
+npm install
 ```
 
-3. Run the main application:
+3. Run the Node.js application:
 ```bash
-python app.py
+npm start
 ```
 
-3. Open `http://127.0.0.1:5000` in your browser for the main portal
+4. Open `http://127.0.0.1:3000` in your browser for the main portal.
 
 ### Super Admin Portal
 
-The super admin portal runs as a separate Flask application:
-
-```bash
-python superadmin_app.py
-```
-
-By default, it runs on `http://127.0.0.1:8080`. You can change the port using the `SUPERADMIN_PORT` environment variable:
-
-```bash
-# On Windows (cmd)
-set SUPERADMIN_PORT=5002 && python superadmin_app.py
-
-# On Linux/Mac
-SUPERADMIN_PORT=5002 python superadmin_app.py
-```
-
-Or in PowerShell:
-```powershell
-$env:SUPERADMIN_PORT=5002; python superadmin_app.py
-```
-
-The super admin login is available at: `http://127.0.0.1:8080/superadmin/login`
+The super admin portal is now part of the same Express application and is mounted under `/superadmin`.
 
 ## 👥 Demo Credentials
 
@@ -158,48 +137,47 @@ The system features a modern, clean interface with:
 
 ## 🔧 Technical Stack
 
-- **Backend**: Flask (Python)
-- **Database**: SQLite
-- **Frontend**: HTML5, CSS3, JavaScript
-- **Styling**: Custom CSS with CSS3 features
+- **Backend**: Node.js, Express.js
+- **Database**: PostgreSQL
+- **ORM**: Prisma
+- **Frontend**: EJS, HTML5, CSS3, JavaScript
+- **Styling**: Bootstrap and custom CSS
 - **Authentication**: Session-based with password hashing
 
 ## 📁 Project Structure
 
 ```
 school/
-├── app.py                 # Main Flask application (port 5000)
-├── superadmin_app.py      # Super admin Flask application (port 8080)
-├── school.db              # SQLite database
-├── requirements.txt       # Python dependencies
-├── README.md             # This file
-├── static/
-│   └── style.css         # Application styles
-└── templates/
-    ├── base.html         # Base template
-    ├── login.html        # Login page
-    ├── dashboard.html    # Main dashboard
-    ├── admin.html        # Admin panel
-    ├── superadmin.html   # Super admin panel
-    ├── attendance.html   # Attendance management
-    ├── grades.html       # Grade recording
-    ├── timetable.html    # Class schedules
-    ├── assignments.html  # Assignment tracking
-    ├── events.html       # Event calendar
-    ├── announcements.html # Announcements
-    ├── library.html      # Library catalog
-    ├── messages.html     # Messaging system
-    ├── finance.html      # Fee management
-    ├── parent.html       # Parent dashboard
-    └── students.html     # Student directory
+├── package.json           # Root Node.js scripts
+├── package-lock.json      # Root install lockfile
+├── Procfile               # Production process entry
+├── node-app/
+│   ├── package.json       # Express app dependencies and scripts
+│   ├── server.js          # Node entry point
+│   ├── prisma/
+│   │   ├── schema.prisma  # Prisma database schema
+│   │   └── seed.js        # Prisma seed script
+│   └── src/
+│       ├── app.js         # Express app setup
+│       ├── config/        # Environment, Prisma, and session config
+│       ├── controllers/   # Request handlers
+│       ├── middleware/    # Auth, roles, and school scoping
+│       ├── routes/        # Role-prefixed route modules
+│       ├── services/      # Business logic
+│       ├── views/         # EJS templates
+│       └── public/        # Static assets
+├── app.py                 # Legacy Flask reference
+├── superadmin_app.py      # Legacy Flask superadmin reference
+├── static/                # Legacy Flask static assets
+└── templates/             # Legacy Flask Jinja templates
 ```
 
 ## 🛡️ Security Features
 
-- Password hashing with Werkzeug
+- Password hashing with bcrypt
 - Session-based authentication
 - Role-based access control
-- SQL injection prevention
+- SQL injection prevention through Prisma queries
 - CSRF protection (basic)
 - Input validation
 
