@@ -181,10 +181,10 @@
 
                 <div class="sidebar-footer">
                     <div class="user-info">
-                        <div class="user-avatar">{{ session.user_name[0]|upper }}</div>
+                        <div class="user-avatar">{{ (session.user_name or 'U')[0]|upper }}</div>
                         <div>
-                            <p class="user-name">{{ session.user_name }}</p>
-                            <p class="user-role">{{ session.role|replace('_', ' ')|title }}</p>
+                            <p class="user-name">{{ session.user_name or 'User' }}</p>
+                            <p class="user-role">{{ (session.role or 'user')|replace('_', ' ')|title }}</p>
                         </div>
                     </div>
                     <a href="{{ url_for('logout') }}" class="logout-btn">
@@ -215,8 +215,8 @@
                                             <h1>{% block page_title %}Dashboard{% endblock %}</h1>
                                         </div>
                                         <div class="topbar-actions">
-                                            <span class="breadcrumb">{{ session.school_code }}</span>
-                                            <span class="user-pill">{{ session.user_name }}</span>
+                                            <span class="breadcrumb">{{ session.school_code or '' }}</span>
+                                            <span class="user-pill">{{ session.user_name or 'User' }}</span>
                                         </div>
                                     </div>
                                 </header>

@@ -14,7 +14,7 @@ import urllib.request
 from datetime import datetime, timedelta
 from urllib.parse import quote
 from functools import wraps
-from flask import Flask, g, render_template, request, redirect, url_for, flash, session, send_from_directory, abort, render_template_string
+from flask import Flask, g, render_template, request, redirect, url_for, flash, session, send_from_directory, abort, render_template_string, Response
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 from email.mime.text import MIMEText
@@ -436,6 +436,47 @@ def save_temp_file(content, extension="csv"):
     return file_id, filename
 
 
+def get_student_report_row(student_id, school_id, term=None):
+    """Fetch student report metadata safely even when optional columns are missing."""
+    available_columns = has_table_columns(
+        "student_reports",
+        {"teacher_remarks", "head_remarks", "attendance_present", "attendance_total", "conduct", "promoted_to", "signature", "interest", "position", "class_size", "reopening_date", "term"},
+    )
+
+    selected_columns = [
+        "teacher_remarks",
+        "head_remarks",
+        "attendance_present",
+        "attendance_total",
+        "conduct",
+        "promoted_to",
+        "signature",
+        "interest",
+    ]
+    if "position" in available_columns:
+        selected_columns.append("position")
+    if "class_size" in available_columns:
+        selected_columns.append("class_size")
+    if "reopening_date" in available_columns:
+        selected_columns.append("reopening_date")
+    if "term" in available_columns:
+        selected_columns.append("term")
+
+    select_columns = ", ".join(selected_columns)
+    if term:
+        return query_db(
+            f"SELECT {select_columns} FROM student_reports WHERE student_id = ? AND school_id = ? AND term = ?",
+            (student_id, school_id, term),
+            one=True,
+        )
+
+    return query_db(
+        f"SELECT {select_columns} FROM student_reports WHERE student_id = ? AND school_id = ? ORDER BY id DESC LIMIT 1",
+        (student_id, school_id),
+        one=True,
+    )
+
+
 def build_grade_report_document(student, school_name, sender_name, grades_data, teacher_remarks, term, attendance_present, attendance_total, conduct="", promoted_to="", signature="", interest="", class_test_weight=0.20, midterm_exam_weight=0.20, class_score_weight=0.10, final_exam_weight=0.50, class_size="", position="", reopening_date=""):
     """Build a Word-compatible HTML document for a student's grade report."""
     report_date = datetime.now().strftime("%d %B %Y")
@@ -500,6 +541,11 @@ def build_grade_report_document(student, school_name, sender_name, grades_data, 
         .footer {{ margin-top: 14px; display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; }}
         .footer-box {{ flex: 1; border-top: 1px solid #9ca3af; padding-top: 4px; font-size: 10px; color: #4b5563; min-height: 28px; }}
         .footer-label {{ font-weight: 700; color: #111827; margin-bottom: 2px; text-transform: uppercase; font-size: 9px; letter-spacing: 0.5px; }}
+        @media print {{
+            body {{ padding: 0; }}
+            .sheet {{ max-width: none; }}
+            .footer {{ page-break-inside: avoid; }}
+        }}
     </style>
 </head>
 <body>
@@ -2938,6 +2984,117 @@ def save_grades():
     return redirect(url_for("grades", student_id=student_id, term=term))
     
     
+@app.route("/grades/report/<int:student_id>")
+@login_required
+def student_grade_report(student_id):
+    """Generate a printable/downloadable grade report for a single student."""
+    school_id = session.get("school_id")
+    if not school_id:
+        abort(404)
+
+    student = query_db(
+        "SELECT * FROM students WHERE id = ? AND school_id = ?",
+        (student_id, school_id),
+        one=True,
+    )
+    if not student:
+        abort(404)
+
+    if session.get("role") == ROLE_PARENT and student.get("parent_user_id") != session.get("user_id"):
+        abort(403)
+
+    term = request.args.get("term", "").strip()
+    school = query_db("SELECT name, class_test_weight, midterm_exam_weight, class_score_weight, final_exam_weight FROM schools WHERE id = ?", (school_id,), one=True)
+    school_name = school["name"] if school else "School"
+
+    sender = query_db("SELECT name FROM users WHERE id = ?", (session.get("user_id"),), one=True)
+    sender_name = sender["name"] if sender else "Teacher"
+
+    if term:
+        grades_data = query_db(
+            "SELECT subject, grade, class_test, midterm_exam, class_score, final_exam, total_score, remark, term FROM grades WHERE student_id = ? AND school_id = ? AND term = ? ORDER BY subject",
+            (student_id, school_id, term),
+        )
+        report = get_student_report_row(student_id, school_id, term)
+    else:
+        grades_data = query_db(
+            "SELECT subject, grade, class_test, midterm_exam, class_score, final_exam, total_score, remark, term FROM grades WHERE student_id = ? AND school_id = ? ORDER BY subject",
+            (student_id, school_id),
+        )
+        report = get_student_report_row(student_id, school_id)
+
+    teacher_remarks = ""
+    attendance_present = None
+    attendance_total = None
+    conduct = ""
+    promoted_to = ""
+    signature = ""
+    interest = ""
+    report_term = term or (report.get("term") if report else "")
+    position = ""
+    class_size = ""
+    reopening_date = ""
+
+    if report:
+        teacher_remarks = report.get("teacher_remarks") or report.get("head_remarks") or ""
+        attendance_present = report.get("attendance_present")
+        attendance_total = report.get("attendance_total")
+        conduct = report.get("conduct") or ""
+        promoted_to = report.get("promoted_to") or ""
+        signature = report.get("signature") or ""
+        interest = report.get("interest") or ""
+        position = report.get("position") or ""
+        class_size = report.get("class_size") or ""
+        reopening_date = report.get("reopening_date") or ""
+
+    class_test_weight = (school.get("class_test_weight") if school else None) or 0.20
+    midterm_exam_weight = (school.get("midterm_exam_weight") if school else None) or 0.20
+    class_score_weight = (school.get("class_score_weight") if school else None) or 0.10
+    final_exam_weight = (school.get("final_exam_weight") if school else None) or 0.50
+
+    report_document = build_grade_report_document(
+        student,
+        school_name,
+        sender_name,
+        grades_data,
+        teacher_remarks,
+        report_term,
+        attendance_present,
+        attendance_total,
+        conduct,
+        promoted_to,
+        signature,
+        interest,
+        class_test_weight,
+        midterm_exam_weight,
+        class_score_weight,
+        final_exam_weight,
+        class_size,
+        position,
+        reopening_date,
+    )
+
+    if request.args.get("download") == "1" or request.args.get("format") == "pdf":
+        pdf_bytes, _ = generate_pdf_from_html(report_document)
+        safe_student_name = secure_filename(student["name"].replace(" ", "_")) or "student"
+        if pdf_bytes:
+            filename = f"{safe_student_name}_grade_report_{(term or report_term or 'all').replace(' ', '_')}.pdf"
+            return Response(
+                pdf_bytes,
+                mimetype="application/pdf",
+                headers={"Content-Disposition": f"attachment; filename={filename}"},
+            )
+
+        filename = f"{safe_student_name}_grade_report_{(term or report_term or 'all').replace(' ', '_')}.html"
+        return Response(
+            report_document.encode("utf-8"),
+            mimetype="text/html",
+            headers={"Content-Disposition": f"attachment; filename={filename}"},
+        )
+
+    return Response(report_document, mimetype="text/html")
+
+
 @app.route("/send_grades", methods=["POST"])
 @login_required
 @teacher_required
@@ -3006,39 +3163,19 @@ def send_grades():
     class_size = ""
     reopening_date = ""
     report_term = term
-    if term:
-        report = query_db(
-            "SELECT teacher_remarks, head_remarks, attendance_present, attendance_total, conduct, promoted_to, signature, interest, position, class_size, reopening_date FROM student_reports WHERE student_id = ? AND school_id = ? AND term = ?",
-            (student_id, school_id, term), one=True
-        )
-        if report:
-            teacher_remarks = report.get("teacher_remarks") or report.get("head_remarks") or ""
-            attendance_present = report.get("attendance_present")
-            attendance_total = report.get("attendance_total")
-            conduct = report.get("conduct") or ""
-            promoted_to = report.get("promoted_to") or ""
-            signature = report.get("signature") or ""
-            interest = report.get("interest") or ""
-            position = report.get("position") or ""
-            class_size = report.get("class_size") or ""
-            reopening_date = report.get("reopening_date") or ""
-    else:
-        report = query_db(
-            "SELECT teacher_remarks, head_remarks, attendance_present, attendance_total, conduct, promoted_to, signature, interest, term, position, class_size, reopening_date FROM student_reports WHERE student_id = ? AND school_id = ? ORDER BY id DESC LIMIT 1",
-            (student_id, school_id), one=True
-        )
-        if report:
-            teacher_remarks = report.get("teacher_remarks") or report.get("head_remarks") or ""
-            attendance_present = report.get("attendance_present")
-            attendance_total = report.get("attendance_total")
-            conduct = report.get("conduct") or ""
-            promoted_to = report.get("promoted_to") or ""
-            signature = report.get("signature") or ""
-            interest = report.get("interest") or ""
-            report_term = report.get("term")
-            position = report.get("position") or ""
-            class_size = report.get("class_size") or ""
-            reopening_date = report.get("reopening_date") or ""
+    report = get_student_report_row(student_id, school_id, term if term else None)
+    if report:
+        teacher_remarks = report.get("teacher_remarks") or report.get("head_remarks") or ""
+        attendance_present = report.get("attendance_present")
+        attendance_total = report.get("attendance_total")
+        conduct = report.get("conduct") or ""
+        promoted_to = report.get("promoted_to") or ""
+        signature = report.get("signature") or ""
+        interest = report.get("interest") or ""
+        report_term = report.get("term") or report_term
+        position = report.get("position") or ""
+        class_size = report.get("class_size") or ""
+        reopening_date = report.get("reopening_date") or ""
     import csv
     import io
     csv_output = io.StringIO()

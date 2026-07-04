@@ -56,3 +56,18 @@ with app.test_client() as c:
                 print(f"  OK {method} {route}: {resp.status_code}")
         except Exception as e:
             print(f"  EXCEPTION {method} {route}: {e}")
+
+    # Verify the new per-student grade report endpoint works for a real student
+    conn = sqlite3.connect('school.db')
+    cur = conn.cursor()
+    cur.execute('SELECT id FROM students WHERE school_id = ? LIMIT 1', (sid,))
+    student_row = cur.fetchone()
+    conn.close()
+
+    if student_row:
+        report_resp = c.get(f"/grades/report/{student_row[0]}?term={code}", follow_redirects=False)
+        print(f"  REPORT {student_row[0]}: {report_resp.status_code}")
+        if report_resp.status_code >= 400:
+            raise AssertionError(f"Per-student grade report route failed: {report_resp.status_code}")
+    else:
+        print("  REPORT SKIPPED: no students found")

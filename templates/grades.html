@@ -137,6 +137,20 @@
                                         <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 14l-4 1 1-4 9.5-9.5z"/>
                                     </svg>
                                 </button>
+                                <button class="btn-icon btn-download" onclick="downloadStudentReport({{ student.id }})" title="Download Grade Report">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                        <polyline points="7 10 12 15 17 10"/>
+                                        <line x1="12" y1="15" x2="12" y2="3"/>
+                                    </svg>
+                                </button>
+                                <button class="btn-icon btn-print" onclick="printStudentReport({{ student.id }})" title="Print Grade Report">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="6 9 6 2 18 2 18 9"/>
+                                        <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+                                        <rect x="6" y="14" width="12" height="8" rx="1"/>
+                                    </svg>
+                                </button>
                                 <button class="btn-icon btn-email" onclick="sendGradeViaEmail({{ student.id }})" title="Send via Email" {% if not student.parent_email %}disabled{% endif %}>
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                         <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
@@ -541,6 +555,12 @@
 
 .btn-email { background: var(--primary-100); color: var(--primary-600); }
 .btn-email:hover:not(:disabled) { background: var(--primary-600); color: white; }
+
+.btn-download { background: #dcfce7; color: #166534; }
+.btn-download:hover:not(:disabled) { background: #166534; color: white; }
+
+.btn-print { background: #fef3c7; color: #92400e; }
+.btn-print:hover:not(:disabled) { background: #92400e; color: white; }
 
 .btn-whatsapp { background: #d1fae5; color: #065f46; }
 .btn-whatsapp:hover:not(:disabled) { background: #065f46; color: white; }
@@ -1028,6 +1048,29 @@ function openSendModal(studentId, method) {
     document.getElementById('sendRecipient').value = recipient;
     document.getElementById('sendMessage').value = '';
     document.getElementById('sendModal').style.display = 'flex';
+}
+
+function downloadStudentReport(studentId) {
+    const params = new URLSearchParams();
+    const term = document.getElementById('term').value;
+    if (term) params.set('term', term);
+    params.set('download', '1');
+    const reportUrl = `/grades/report/${encodeURIComponent(studentId)}`;
+    window.location.href = `${reportUrl}?${params.toString()}`;
+}
+
+function printStudentReport(studentId) {
+    const params = new URLSearchParams();
+    const term = document.getElementById('term').value;
+    if (term) params.set('term', term);
+    params.set('print', '1');
+    const reportUrl = `/grades/report/${encodeURIComponent(studentId)}`;
+    const printWindow = window.open(`${reportUrl}?${params.toString()}`, '_blank');
+    if (printWindow) {
+        setTimeout(() => {
+            try { printWindow.focus(); printWindow.print(); } catch (e) {}
+        }, 500);
+    }
 }
 
 function sendGradeViaEmail(studentId) {
