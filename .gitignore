@@ -8,3 +8,12 @@ school.db
 *.log
 temp_exports/
 .vscode/
+
+school
+school.pub
+
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.sqlite3

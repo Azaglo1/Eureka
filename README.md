@@ -26,31 +26,31 @@ A comprehensive, modern school management system with role-based access control,
 ## 🚀 Getting Started
 
 ### Prerequisites
-- Node.js 20+
-- PostgreSQL
+- Python 3.10+
+- PostgreSQL (optional for local development; SQLite is used by default)
 
 ### Installation
 
-1. (Optional) Copy `.env.example` to `.env` and customize the configuration:
+1. Create a local environment file if needed and customize the configuration:
 ```bash
 copy .env.example .env
 ```
 
 2. Install dependencies:
 ```bash
-npm install
+python -m pip install -r requirements.txt
 ```
 
-3. Run the Node.js application:
+3. Run the Flask application:
 ```bash
-npm start
+python app.py
 ```
 
-4. Open `http://127.0.0.1:3000` in your browser for the main portal.
+4. Open `http://127.0.0.1:5000` in your browser for the main portal.
 
 ### Super Admin Portal
 
-The super admin portal is now part of the same Express application and is mounted under `/superadmin`.
+The super admin portal remains available through the Flask application and its dedicated Flask routes.
 
 ## 👥 Demo Credentials
 
@@ -137,10 +137,9 @@ The system features a modern, clean interface with:
 
 ## 🔧 Technical Stack
 
-- **Backend**: Node.js, Express.js
-- **Database**: PostgreSQL
-- **ORM**: Prisma
-- **Frontend**: EJS, HTML5, CSS3, JavaScript
+- **Backend**: Flask
+- **Database**: SQLite by default, PostgreSQL supported
+- **Frontend**: Jinja2 templates, HTML5, CSS3, JavaScript
 - **Styling**: Bootstrap and custom CSS
 - **Authentication**: Session-based with password hashing
 
@@ -148,28 +147,12 @@ The system features a modern, clean interface with:
 
 ```
 school/
-├── package.json           # Root Node.js scripts
-├── package-lock.json      # Root install lockfile
+├── package.json           # Root Flask run scripts
 ├── Procfile               # Production process entry
-├── node-app/
-│   ├── package.json       # Express app dependencies and scripts
-│   ├── server.js          # Node entry point
-│   ├── prisma/
-│   │   ├── schema.prisma  # Prisma database schema
-│   │   └── seed.js        # Prisma seed script
-│   └── src/
-│       ├── app.js         # Express app setup
-│       ├── config/        # Environment, Prisma, and session config
-│       ├── controllers/   # Request handlers
-│       ├── middleware/    # Auth, roles, and school scoping
-│       ├── routes/        # Role-prefixed route modules
-│       ├── services/      # Business logic
-│       ├── views/         # EJS templates
-│       └── public/        # Static assets
-├── app.py                 # Legacy Flask reference
-├── superadmin_app.py      # Legacy Flask superadmin reference
-├── static/                # Legacy Flask static assets
-└── templates/             # Legacy Flask Jinja templates
+├── app.py                 # Main Flask application
+├── superadmin_app.py      # Flask superadmin application
+├── static/                # Flask static assets
+└── templates/             # Flask Jinja templates
 ```
 
 ## 🛡️ Security Features
@@ -177,7 +160,7 @@ school/
 - Password hashing with bcrypt
 - Session-based authentication
 - Role-based access control
-- SQL injection prevention through Prisma queries
+- SQL injection prevention through parameterized queries
 - CSRF protection (basic)
 - Input validation
 

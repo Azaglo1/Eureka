@@ -1,18 +1,10 @@
 {
-  "name": "school-management",
-  "version": "0.1.0",
+  "name": "eureka-portal",
+  "version": "1.0.0",
   "private": true,
-  "description": "Node.js primary application for the school management system.",
+  "description": "Flask-based school management system",
   "scripts": {
-    "start": "npm --prefix node-app start",
-    "dev": "npm --prefix node-app run dev",
-    "install:node": "npm --prefix node-app install",
-    "postinstall": "npm --prefix node-app install",
-    "prisma:generate": "npm --prefix node-app run prisma:generate",
-    "prisma:migrate": "npm --prefix node-app run prisma:migrate",
-    "prisma:studio": "npm --prefix node-app run prisma:studio"
-  },
-  "engines": {
-    "node": ">=20"
+    "start": "python app.py",
+    "dev": "python app.py"
   }
 }
