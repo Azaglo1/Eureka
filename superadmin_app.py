@@ -666,6 +666,22 @@ def superadmin_delete_user(user_id):
     flash(f"User '{user['name']}' has been deactivated", "success")
     return redirect(url_for("superadmin_users"))
 
+@app.route("/superadmin/users/<int:user_id>/reactivate", methods=["POST"])
+@superadmin_login_required
+def superadmin_reactivate_user(user_id):
+    user = query_db("SELECT * FROM users WHERE id = ?", (user_id,), one=True)
+    if not user:
+        flash("User not found", "danger")
+        return redirect(url_for("superadmin_users"))
+
+    if user["active"]:
+        flash("User is already active.", "info")
+        return redirect(url_for("superadmin_users"))
+
+    query_db("UPDATE users SET active = 1 WHERE id = ?", (user_id,), commit=True)
+    flash(f"User '{user['name']}' has been reactivated.", "success")
+    return redirect(url_for("superadmin_users"))
+
 
 @app.route("/superadmin/users/<int:user_id>/permanently_delete", methods=["POST"])
 @superadmin_login_required

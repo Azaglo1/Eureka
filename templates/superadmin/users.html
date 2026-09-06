@@ -63,9 +63,15 @@
                     <td>
                         <a href="{{ url_for('superadmin_edit_user', user_id=user.id) }}" class="btn btn-sm btn-warning">Edit</a>
                         {% if user.role != 'superadmin' %}
+                        {% if user.active %}
                         <form action="{{ url_for('superadmin_delete_user', user_id=user.id) }}" method="post" style="display:inline" onsubmit="return confirm('Are you sure you want to deactivate this user?')">
                             <button type="submit" class="btn btn-sm btn-warning">Deactivate</button>
                         </form>
+                        {% else %}
+                        <form action="{{ url_for('superadmin_reactivate_user', user_id=user.id) }}" method="post" style="display:inline" onsubmit="return confirm('Are you sure you want to reactivate this user?')">
+                            <button type="submit" class="btn btn-sm btn-success">Reactivate</button>
+                        </form>
+                        {% endif %}
                         <form action="{{ url_for('superadmin_permanently_delete_user', user_id=user.id) }}" method="post" style="display:inline" onsubmit="return confirm('WARNING: This will permanently delete user \'{{ user.name }}\' and ALL associated data. This action CANNOT be undone. Are you absolutely sure?')">
                             <button type="submit" class="btn btn-sm btn-danger">Delete Permanently</button>
                         </form>
