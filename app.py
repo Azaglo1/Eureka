@@ -7,10 +7,12 @@ import json
 import uuid
 import csv
 import io
+import re
 import requests
 import urllib.error
 import urllib.parse
 import urllib.request
+from html.parser import HTMLParser
 from datetime import datetime, timedelta
 from urllib.parse import quote
 from functools import wraps
@@ -93,14 +95,214 @@ validate_production_config()
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev-secret")
 
+def _basic_pdf_table_commands(rows):
+    if not rows:
+        return []
+
+    commands = []
+    y = 780
+    for row_index, row in enumerate(rows):
+        column_count = max(len(row), 1)
+        if column_count == 8:
+            widths = [85, 35, 50, 50, 50, 50, 50, 165]
+        elif column_count == 2:
+            widths = [140, 395]
+        else:
+            widths = [535 / column_count] * column_count
+        row_height = 34 if column_count == 8 else 24
+        x = 30
+        for column_index, width in enumerate(widths):
+            value = row[column_index] if column_index < len(row) else ""
+            words = value.split()
+            lines = []
+            current = ""
+            max_chars = max(8, int(width / 4.5))
+            for word in words:
+                candidate = f"{current} {word}".strip()
+                if len(candidate) > max_chars and current:
+                    lines.append(current)
+                    current = word
+                else:
+                    current = candidate
+            if current:
+                lines.append(current)
+            commands.append(f"{x:.1f} {y - row_height:.1f} {width:.1f} {row_height:.1f} re S")
+            for line_index, line in enumerate(lines[:2]):
+                escaped = line.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+                commands.extend(["BT", "/F1 7 Tf", f"{x + 3:.1f} {y - 11 - (line_index * 9):.1f} Td", f"({escaped}) Tj", "ET"])
+            x += width
+        y -= row_height
+        if y < 35:
+            break
+    return commands
+
+
 def generate_pdf_from_html(html_content):
+    class ReportTextParser(HTMLParser):
+        def __init__(self):
+            super().__init__()
+            self.lines = []
+            self.current = ""
+            self.ignored_depth = 0
+            self.table_rows = []
+            self.current_row = None
+            self.current_cell = None
+
+        def handle_data(self, data):
+            if self.ignored_depth:
+                return
+            text = " ".join(data.split())
+            if text:
+                if self.current_cell is not None:
+                    self.current_cell += (" " if self.current_cell else "") + text
+                    return
+                self.current += (" " if self.current else "") + text
+
+        def handle_starttag(self, tag, attrs):
+            if tag in {"style", "script"}:
+                self.ignored_depth += 1
+                return
+            if self.ignored_depth:
+                return
+            if tag == "tr":
+                self.current_row = []
+                return
+            if tag in {"td", "th"} and self.current_row is not None:
+                self.current_cell = ""
+                return
+            if tag in {"h1", "h2", "h3", "p", "tr", "div"} and self.current:
+                self.lines.append(self.current)
+                self.current = ""
+
+        def handle_endtag(self, tag):
+            if tag in {"style", "script"}:
+                self.ignored_depth = max(0, self.ignored_depth - 1)
+                return
+            if self.ignored_depth:
+                return
+            if tag in {"td", "th"} and self.current_row is not None and self.current_cell is not None:
+                self.current_row.append(self.current_cell)
+                self.current_cell = None
+                return
+            if tag == "tr" and self.current_row is not None:
+                if self.current_row:
+                    self.table_rows.append(self.current_row)
+                self.current_row = None
+                return
+            if tag in {"h1", "h2", "h3", "p", "tr", "div", "li"} and self.current:
+                self.lines.append(self.current)
+                self.current = ""
+
+        def finish(self):
+            if self.current:
+                self.lines.append(self.current)
+
     try:
         from weasyprint import HTML
         pdf_bytes = HTML(string=html_content).write_pdf()
         return pdf_bytes, None
     except Exception as e:
         print(f"[PDF ERROR] Failed to generate PDF with WeasyPrint: {e}")
-        return None, None
+        try:
+            from reportlab.lib.pagesizes import A4
+            from reportlab.pdfgen import canvas
+
+            parser = ReportTextParser()
+            parser.feed(html_content)
+            parser.finish()
+
+            output = io.BytesIO()
+            document = canvas.Canvas(output, pagesize=A4)
+            _, page_height = A4
+            y = page_height - 40
+            document.setFont("Helvetica", 9)
+            for line in parser.lines:
+                words = line.split()
+                current_line = ""
+                for word in words:
+                    candidate = f"{current_line} {word}".strip()
+                    if document.stringWidth(candidate, "Helvetica", 9) > 520:
+                        document.drawString(40, y, current_line)
+                        y -= 13
+                        current_line = word
+                    else:
+                        current_line = candidate
+                if current_line:
+                    document.drawString(40, y, current_line)
+                    y -= 13
+                if y < 40:
+                    document.showPage()
+                    document.setFont("Helvetica", 9)
+                    y = page_height - 40
+            document.save()
+            return output.getvalue(), None
+        except Exception as fallback_error:
+            print(f"[PDF ERROR] ReportLab fallback failed: {fallback_error}")
+            try:
+                parser = ReportTextParser()
+                parser.feed(html_content)
+                parser.finish()
+                # Every visible report element is represented by a table row.
+                # Do not render parser.lines separately or content appears above the tables.
+                lines = []
+                wrapped_lines = []
+                for line in lines:
+                    words = line.split()
+                    current = ""
+                    for word in words:
+                        candidate = f"{current} {word}".strip()
+                        if len(candidate) > 92:
+                            wrapped_lines.append(current)
+                            current = word
+                        else:
+                            current = candidate
+                    if current:
+                        wrapped_lines.append(current)
+
+                table_pages = [
+                    parser.table_rows[index:index + 18]
+                    for index in range(0, len(parser.table_rows), 18)
+                ] or [[]]
+                page_lines = [[] for _ in table_pages]
+                objects = [b"<< /Type /Catalog /Pages 2 0 R >>", None]
+                page_refs = []
+                for page_number, page_lines_group in enumerate(page_lines, start=1):
+                    content = ["BT", "/F1 9 Tf", "40 790 Td"]
+                    for line in page_lines_group:
+                        escaped = line.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+                        content.append(f"({escaped}) Tj")
+                        content.append("0 -14 Td")
+                    content.append("ET")
+                    if table_pages[page_number - 1]:
+                        content.extend(_basic_pdf_table_commands(table_pages[page_number - 1]))
+                    content_bytes = "\n".join(content).encode("latin-1", errors="replace")
+                    content_ref = len(objects) + 1
+                    objects.append(f"<< /Length {len(content_bytes)} >>\nstream\n".encode("ascii") + content_bytes + b"\nendstream")
+                    page_ref = len(objects) + 1
+                    objects.append(
+                        f"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 {len(objects) + 2} 0 R >> >> /Contents {content_ref} 0 R >>".encode("ascii")
+                    )
+                    page_refs.append(page_ref)
+                font_ref = len(objects) + 1
+                objects.append(b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>")
+                objects[1] = f"<< /Type /Pages /Kids [{' '.join(f'{ref} 0 R' for ref in page_refs)}] /Count {len(page_refs)} >>".encode("ascii")
+
+                pdf = bytearray(b"%PDF-1.4\n")
+                offsets = [0]
+                for object_number, object_data in enumerate(objects, start=1):
+                    offsets.append(len(pdf))
+                    pdf.extend(f"{object_number} 0 obj\n".encode("ascii"))
+                    pdf.extend(object_data)
+                    pdf.extend(b"\nendobj\n")
+                xref_offset = len(pdf)
+                pdf.extend(f"xref\n0 {len(objects) + 1}\n0000000000 65535 f \n".encode("ascii"))
+                for offset in offsets[1:]:
+                    pdf.extend(f"{offset:010d} 00000 n \n".encode("ascii"))
+                pdf.extend(f"trailer\n<< /Size {len(objects) + 1} /Root 1 0 R >>\nstartxref\n{xref_offset}\n%%EOF".encode("ascii"))
+                return bytes(pdf), None
+            except Exception as basic_pdf_error:
+                print(f"[PDF ERROR] Basic PDF fallback failed: {basic_pdf_error}")
+                return None, basic_pdf_error
 
 
 
@@ -464,11 +666,28 @@ def get_student_report_row(student_id, school_id, term=None):
 
     select_columns = ", ".join(selected_columns)
     if term:
-        return query_db(
+        report = query_db(
             f"SELECT {select_columns} FROM student_reports WHERE student_id = ? AND school_id = ? AND term = ?",
             (student_id, school_id, term),
             one=True,
         )
+        if report:
+            fallback_report = query_db(
+                f"SELECT {select_columns} FROM student_reports WHERE student_id = ? AND school_id = ? AND term != ? ORDER BY id DESC LIMIT 1",
+                (student_id, school_id, term),
+                one=True,
+            )
+            if fallback_report:
+                merged_report = dict(report)
+                for column in selected_columns:
+                    current_value = merged_report.get(column)
+                    fallback_value = fallback_report.get(column)
+                    if (current_value is None or current_value == "" or
+                            (column in {"attendance_present", "attendance_total"} and current_value == 0 and fallback_value not in (None, "", 0))):
+                        if fallback_value not in (None, ""):
+                            merged_report[column] = fallback_value
+                return merged_report
+            return report
 
     return query_db(
         f"SELECT {select_columns} FROM student_reports WHERE student_id = ? AND school_id = ? ORDER BY id DESC LIMIT 1",
@@ -477,7 +696,7 @@ def get_student_report_row(student_id, school_id, term=None):
     )
 
 
-def build_grade_report_document(student, school_name, sender_name, grades_data, teacher_remarks, term, attendance_present, attendance_total, conduct="", promoted_to="", signature="", interest="", class_test_weight=0.20, midterm_exam_weight=0.20, class_score_weight=0.10, final_exam_weight=0.50, class_size="", position="", reopening_date=""):
+def build_grade_report_document(student, school_name, sender_name, grades_data, teacher_remarks, term, attendance_present, attendance_total, conduct="", promoted_to="", signature="", interest="", class_test_weight=0.20, midterm_exam_weight=0.20, class_score_weight=0.10, final_exam_weight=0.50, class_size="", position="", reopening_date="", head_remarks=""):
     """Build a Word-compatible HTML document for a student's grade report."""
     report_date = datetime.now().strftime("%d %B %Y")
     rows = []
@@ -509,6 +728,10 @@ def build_grade_report_document(student, school_name, sender_name, grades_data, 
         remarks_items.append(("Interest", interest))
     if signature:
         remarks_items.append(("Signature", signature))
+    if teacher_remarks:
+        remarks_items.append(("Teacher's Remarks", teacher_remarks))
+    if head_remarks:
+        remarks_items.append(("Headmaster's Remarks", head_remarks))
 
     remarks_rows = "".join(
         f"<tr><td class='label'>{html.escape(label)}</td><td>{html.escape(value)}</td></tr>"
@@ -524,17 +747,21 @@ def build_grade_report_document(student, school_name, sender_name, grades_data, 
         * {{ box-sizing: border-box; }}
         body {{ font-family: "Segoe UI", Arial, sans-serif; color: #1f2937; font-size: 11px; line-height: 1.3; margin: 0; padding: 18px; }}
         .sheet {{ max-width: 780px; margin: 0 auto; }}
-        .header {{ text-align: center; padding-bottom: 8px; border-bottom: 2px solid #111827; margin-bottom: 8px; }}
-        .header h1 {{ font-size: 15px; margin: 0; letter-spacing: 0.5px; text-transform: uppercase; }}
-        .header p {{ margin: 2px 0 0; color: #4b5563; font-size: 10px; }}
-        .meta {{ display: flex; flex-wrap: wrap; gap: 3px 12px; margin-bottom: 8px; padding: 6px 8px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 4px; }}
-        .meta-item {{ display: flex; gap: 4px; min-width: 180px; flex: 1 1 auto; }}
-        .meta-item .label {{ font-weight: 600; color: #374151; white-space: nowrap; }}
+        .summary {{ width: 100%; border-collapse: collapse; margin-bottom: 10px; }}
+        .summary td {{ border: 1px solid #111827; padding: 5px 8px; }}
+        .summary .summary-title {{ background: #111827; color: #ffffff; font-size: 14px; font-weight: 700; text-align: center; text-transform: uppercase; }}
+        .summary .label {{ width: 24%; background: #e5e7eb; color: #374151; font-size: 8px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase; }}
+        .summary .value {{ color: #111827; font-weight: 600; }}
+        .details {{ width: 100%; border-collapse: collapse; margin: 0 0 10px; font-size: 10px; }}
+        .details td {{ width: 25%; padding: 5px 8px; border: 1px solid #e5e7eb; }}
+        .details .label {{ color: #64748b; font-size: 8px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase; }}
+        .details .value {{ color: #1f2937; font-weight: 600; }}
         table {{ width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 10.5px; }}
         th {{ background: #111827; color: #ffffff; font-weight: 600; text-align: left; padding: 5px 8px; border: 1px solid #111827; }}
         td {{ padding: 4px 8px; border: 1px solid #d1d5db; }}
         tr:nth-child(even) {{ background: #f9fafb; }}
-        .section-title {{ font-size: 11px; font-weight: 700; text-transform: uppercase; color: #111827; margin: 12px 0 4px; letter-spacing: 0.4px; border-bottom: 1px solid #e5e7eb; padding-bottom: 2px; }}
+        .section-title {{ width: 100%; border-collapse: collapse; margin: 10px 0 0; }}
+        .section-title td {{ padding: 4px 7px; background: #e5e7eb; border: 1px solid #cbd5e1; color: #111827; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; }}
         .remarks {{ width: 100%; border-collapse: collapse; margin-top: 4px; }}
         .remarks td {{ border: 1px solid #d1d5db; padding: 5px 8px; vertical-align: top; }}
         .remarks td.label {{ width: 140px; font-weight: 600; background: #f3f4f6; color: #111827; }}
@@ -550,25 +777,28 @@ def build_grade_report_document(student, school_name, sender_name, grades_data, 
 </head>
 <body>
     <div class="sheet">
-        <div class="header">
-            <h1>{html.escape(school_name)}</h1>
-            <p>Academic Report &middot; {html.escape(str(term or 'All terms'))} &middot; {html.escape(report_date)}</p>
-        </div>
+        <table class="summary"><tbody>
+            <tr><td class="summary-title" colspan="4">Grade Report</td></tr>
+            <tr><td class="label">School</td><td class="value" colspan="3">{html.escape(school_name)}</td></tr>
+            <tr><td class="label">Report Period</td><td class="value" colspan="3">Academic Report &middot; {html.escape(str(term or 'All terms'))} &middot; {html.escape(report_date)}</td></tr>
+            <tr><td class="label">Student Academic Record</td><td class="value" colspan="3">{html.escape(str(student['name']))}</td></tr>
+            <tr><td class="label">Student No.</td><td class="value">{html.escape(str(student.get('student_number') or 'Not provided'))}</td><td class="label">Class</td><td class="value">{html.escape(str(student.get('grade') or ''))} {html.escape(str(student.get('section') or ''))}</td></tr>
+            <tr><td class="label">Term</td><td class="value">{html.escape(str(term or 'All terms'))}</td><td class="label">Position</td><td class="value">{html.escape(str(position or 'Not recorded'))}</td></tr>
+            <tr><td class="label">Class Size</td><td class="value">{html.escape(str(class_size or 'Not recorded'))}</td><td class="label">Teacher</td><td class="value">{html.escape(sender_name)}</td></tr>
+        </tbody></table>
 
-        <div class="meta">
-            <div class="meta-item"><span class="label">Student:</span> <span>{html.escape(str(student['name']))}</span></div>
-            <div class="meta-item"><span class="label">Student No:</span> <span>{html.escape(str(student.get('student_number') or ''))}</span></div>
-            <div class="meta-item"><span class="label">Class:</span> <span>{html.escape(str(student.get('grade') or ''))} {html.escape(str(student.get('section') or ''))}</span></div>
-            <div class="meta-item"><span class="label">No. in Class:</span> <span>{html.escape(str(class_size or ''))}</span></div>
-            <div class="meta-item"><span class="label">Position:</span> <span>{html.escape(str(position or ''))}</span></div>
-            <div class="meta-item"><span class="label">Term:</span> <span>{html.escape(str(term or 'All terms'))}</span></div>
-            <div class="meta-item"><span class="label">Closing Date:</span> <span>{html.escape(report_date)}</span></div>
-            <div class="meta-item"><span class="label">Reopening Date:</span> <span>{html.escape(str(reopening_date or ''))}</span></div>
-        </div>
+        {(remarks_rows) and f'''
+        <table class="section-title"><tbody><tr><td>End of Term Report</td></tr></tbody></table>
+        <table class="remarks">
+            <tbody>
+                {remarks_rows}
+            </tbody>
+        </table>
+        ''' or ''}
 
-        <div class="section-title">Academic Performance</div>
         <table>
             <thead>
+                <tr><th colspan="8">Academic Performance</th></tr>
                 <tr>
                     <th>Subject</th>
                     <th>Grade</th>
@@ -585,25 +815,7 @@ def build_grade_report_document(student, school_name, sender_name, grades_data, 
             </tbody>
         </table>
 
-        {remarks_rows and f'''
-        <div class="section-title">End of Term Report</div>
-        <table class="remarks">
-            <tbody>
-                {remarks_rows}
-                <tr>
-                    <td class="label">Head Teacher's Remarks</td>
-                    <td>{html.escape(teacher_remarks or '')}</td>
-                </tr>
-            </tbody>
-        </table>
-        ''' or ''}
-
-        <div class="footer">
-            <div class="footer-box">
-                <div class="footer-label">Teacher</div>
-                <div>{html.escape(sender_name)}</div>
-            </div>
-        </div>
+        <table class="footer"><tbody><tr><td class="footer-box"><span class="footer-label">Teacher</span><br>{html.escape(sender_name)}</td></tr></tbody></table>
     </div>
 </body>
 </html>
@@ -624,10 +836,10 @@ def cleanup_temp_files():
             pass  # Continue if we can't read the file time
 
 
-def send_whatsapp_api_message(data):
+def send_whatsapp_api_message(data, access_token=None, phone_number_id=None):
     """Send message via WhatsApp Business API"""
-    access_token = WHATSAPP_ACCESS_TOKEN
-    phone_number_id = WHATSAPP_PHONE_NUMBER_ID
+    access_token = access_token or WHATSAPP_ACCESS_TOKEN
+    phone_number_id = phone_number_id or WHATSAPP_PHONE_NUMBER_ID
     
     if not access_token or not phone_number_id:
         return False, "WhatsApp Business API not configured. Please set WHATSAPP_ACCESS_TOKEN and WHATSAPP_PHONE_NUMBER_ID environment variables."
@@ -647,10 +859,10 @@ def send_whatsapp_api_message(data):
         return False, f"WhatsApp API error: {str(e)}"
 
 
-def upload_whatsapp_media(file_bytes, filename, mime_type="application/pdf"):
+def upload_whatsapp_media(file_bytes, filename, mime_type="application/pdf", access_token=None, phone_number_id=None):
     """Upload media file to WhatsApp Business API and return media_id"""
-    access_token = WHATSAPP_ACCESS_TOKEN
-    phone_number_id = WHATSAPP_PHONE_NUMBER_ID
+    access_token = access_token or WHATSAPP_ACCESS_TOKEN
+    phone_number_id = phone_number_id or WHATSAPP_PHONE_NUMBER_ID
 
     if not access_token or not phone_number_id:
         return None, "WhatsApp Business API not configured."
@@ -1824,6 +2036,90 @@ def pay_fee():
     return redirect(url_for("finance"))
 
 
+def _next_grade_level(school_id, current_grade):
+    """Return the configured grade after current_grade, or increment numeric grades."""
+    current = str(current_grade or "").strip()
+    try:
+        configured = query_db(
+            "SELECT name FROM school_grade_levels WHERE school_id = ? ORDER BY sort_order, name",
+            (school_id,),
+        )
+    except Exception:
+        configured = []
+    names = [row["name"] for row in configured if row.get("name")]
+    if current in names:
+        index = names.index(current)
+        if index + 1 < len(names):
+            return names[index + 1]
+
+    match = re.search(r"(\d+)", current)
+    if not match:
+        return None
+    next_number = str(int(match.group(1)) + 1)
+    if current.lower().startswith("grade"):
+        return f"Grade {next_number}"
+    prefix = current[:match.start()].strip()
+    return f"{prefix} {next_number}".strip()
+
+
+@app.route("/grades/promote-term3", methods=["POST"])
+@login_required
+@teacher_required
+def promote_term3():
+    """Advance a completed Term 3 class and allocate students into A/B/C."""
+    school_id = session.get("school_id")
+    current_grade = request.form.get("grade", "").strip()
+    current_section = request.form.get("section", "").strip()
+    if not school_id or not current_grade:
+        flash("Select a class before promoting students.", "warning")
+        return redirect(url_for("grades"))
+
+    next_grade = _next_grade_level(school_id, current_grade)
+    if not next_grade:
+        flash(f"No next grade is configured for {current_grade}.", "warning")
+        return redirect(url_for("grades", grade=current_grade, section=current_section, term="Term 3"))
+
+    student_query = "SELECT id, name, grade, section FROM students WHERE school_id = ? AND active = 1 AND grade = ?"
+    args = [school_id, current_grade]
+    if current_section:
+        student_query += " AND section = ?"
+        args.append(current_section)
+    students = query_db(student_query, tuple(args))
+    ranked = []
+    for student in students:
+        average_row = query_db(
+            "SELECT AVG(total_score) AS average_score, COUNT(id) AS grade_count FROM grades WHERE student_id = ? AND school_id = ? AND term = ? AND total_score IS NOT NULL",
+            (student["id"], school_id, "Term 3"), one=True
+        )
+        if average_row and average_row.get("grade_count", 0):
+            ranked.append({
+                "id": student["id"],
+                "name": student["name"],
+                "average": float(average_row["average_score"] or 0),
+            })
+
+    if not ranked:
+        flash("No Term 3 grade records were found for this class.", "warning")
+        return redirect(url_for("grades", grade=current_grade, section=current_section, term="Term 3"))
+
+    ranked.sort(key=lambda item: (-item["average"], item["name"].lower()))
+    total = len(ranked)
+    for index, student in enumerate(ranked):
+        section = ("A", "B", "C")[min((index * 3) // total, 2)]
+        query_db(
+            "UPDATE students SET grade = ?, section = ? WHERE id = ? AND school_id = ?",
+            (next_grade, section, student["id"], school_id), commit=True
+        )
+
+    skipped = len(students) - len(ranked)
+    flash(
+        f"Term 3 promotion complete: {len(ranked)} students moved to {next_grade}. "
+        f"Sections assigned by average: A highest, B middle, C lowest. Skipped without Term 3 grades: {skipped}.",
+        "success",
+    )
+    return redirect(url_for("grades", grade=next_grade, term="Term 1"))
+
+
 @app.route("/grades")
 @login_required
 def grades():
@@ -1968,7 +2264,10 @@ def grades():
         class_score_weight = 0.10
         final_exam_weight = 0.50
 
-    school = query_db("SELECT name FROM schools WHERE id = ?", (school_id,), one=True)
+    school = query_db(
+        "SELECT name, whatsapp_access_token, whatsapp_phone_number_id FROM schools WHERE id = ?",
+        (school_id,), one=True
+    )
     school_name = school["name"] if school else "School"
 
     term_options = ["Term 1", "Term 2", "Term 3"]
@@ -3024,6 +3323,7 @@ def student_grade_report(student_id):
         report = get_student_report_row(student_id, school_id)
 
     teacher_remarks = ""
+    head_remarks = ""
     attendance_present = None
     attendance_total = None
     conduct = ""
@@ -3036,7 +3336,8 @@ def student_grade_report(student_id):
     reopening_date = ""
 
     if report:
-        teacher_remarks = report.get("teacher_remarks") or report.get("head_remarks") or ""
+        teacher_remarks = report.get("teacher_remarks") or ""
+        head_remarks = report.get("head_remarks") or ""
         attendance_present = report.get("attendance_present")
         attendance_total = report.get("attendance_total")
         conduct = report.get("conduct") or ""
@@ -3072,6 +3373,7 @@ def student_grade_report(student_id):
         class_size,
         position,
         reopening_date,
+        head_remarks=head_remarks,
     )
 
     if request.args.get("download") == "1" or request.args.get("format") == "pdf":
@@ -3093,6 +3395,196 @@ def student_grade_report(student_id):
         )
 
     return Response(report_document, mimetype="text/html")
+
+
+def _bulk_grade_report(student, school_id, school_name, sender_name, term, custom_message=""):
+    """Build the per-student grade report and delivery payload for bulk sends."""
+    grades_query = (
+        "SELECT subject, grade, class_test, midterm_exam, class_score, final_exam, "
+        "total_score, remark, term FROM grades WHERE student_id = ? AND school_id = ?"
+    )
+    grade_args = [student["id"], school_id]
+    if term:
+        grades_query += " AND term = ?"
+        grade_args.append(term)
+    grades_query += " ORDER BY subject"
+    grades_data = query_db(grades_query, tuple(grade_args))
+    if not grades_data:
+        return None
+
+    report = get_student_report_row(student["id"], school_id, term if term else None) or {}
+    teacher_remarks = report.get("teacher_remarks") or ""
+    head_remarks = report.get("head_remarks") or ""
+    report_term = report.get("term") or term
+    school_weights = query_db(
+        "SELECT class_test_weight, midterm_exam_weight, class_score_weight, final_exam_weight FROM schools WHERE id = ?",
+        (school_id,), one=True
+    ) or {}
+    weights = [
+        school_weights.get("class_test_weight") or 0.20,
+        school_weights.get("midterm_exam_weight") or 0.20,
+        school_weights.get("class_score_weight") or 0.10,
+        school_weights.get("final_exam_weight") or 0.50,
+    ]
+    report_document = build_grade_report_document(
+        student, school_name, sender_name, grades_data, teacher_remarks, report_term,
+        report.get("attendance_present"), report.get("attendance_total"),
+        report.get("conduct") or "", report.get("promoted_to") or "",
+        report.get("signature") or "", report.get("interest") or "",
+        *weights, report.get("class_size") or "", report.get("position") or "",
+        report.get("reopening_date") or "", head_remarks=head_remarks,
+    )
+    pdf_bytes, _ = generate_pdf_from_html(report_document)
+    attachment = (pdf_bytes, "application/pdf") if pdf_bytes else None
+    safe_name = secure_filename(student["name"].replace(" ", "_")) or "student"
+    attachment_filename = (
+        f"grade_report_{safe_name}_{datetime.now().strftime('%Y%m%d')}.pdf"
+        if pdf_bytes else None
+    )
+    sms_lines = [f"Grade report for {student['name']}"]
+    for grade in grades_data:
+        total = f"{grade['total_score']:.1f}" if grade.get("total_score") is not None else "N/A"
+        sms_lines.append(f"{grade.get('subject') or 'Subject'}: {grade.get('grade') or 'N/A'} ({total})")
+    if teacher_remarks:
+        sms_lines.append(f"Teacher's remarks: {teacher_remarks}")
+    email_message = custom_message.strip() or f"Please find the grade report for {student['name']} attached."
+    if not pdf_bytes:
+        email_message += "\n\n" + "\n".join(sms_lines)
+    return {
+        "attachment": attachment,
+        "attachment_filename": attachment_filename,
+        "email_body": (
+            f"Dear {student.get('parent_name') or 'Parent'},\n\n"
+            f"{email_message}\n\n"
+            f"Best regards,\n{sender_name}\n{school_name}"
+        ),
+        "sms_body": "\n".join(sms_lines),
+    }
+
+
+@app.route("/send_grades_bulk", methods=["POST"])
+@login_required
+@teacher_required
+def send_grades_bulk():
+    """Send each student's grade report separately to their parent."""
+    school_id = session.get("school_id")
+    grade = request.form.get("grade", "").strip()
+    section = request.form.get("section", "").strip()
+    term = request.form.get("term", "").strip()
+    subject = request.form.get("subject", "Grade Reports").strip() or "Grade Reports"
+    custom_message = request.form.get("message", "")
+    channels = set(request.form.getlist("channels")) & {"app", "email", "sms", "whatsapp"}
+
+    if not school_id or not (grade or section):
+        flash("Select a class or section before sending bulk grade reports.", "warning")
+        return redirect(url_for("grades", grade=grade, section=section, term=term))
+    if not channels:
+        flash("Choose at least one delivery channel.", "warning")
+        return redirect(url_for("grades", grade=grade, section=section, term=term))
+
+    student_query = "SELECT * FROM students WHERE school_id = ? AND active = 1"
+    student_args = [school_id]
+    if grade:
+        student_query += " AND grade = ?"
+        student_args.append(grade)
+    if section:
+        student_query += " AND section = ?"
+        student_args.append(section)
+    students = query_db(student_query + " ORDER BY name", tuple(student_args))
+    school = query_db("SELECT name FROM schools WHERE id = ?", (school_id,), one=True)
+    sender = query_db("SELECT name FROM users WHERE id = ?", (session.get("user_id"),), one=True)
+    school_name = school["name"] if school else "School"
+    sender_name = sender["name"] if sender else "Teacher"
+    whatsapp_access_token = (school.get("whatsapp_access_token") if school else None) or WHATSAPP_ACCESS_TOKEN
+    whatsapp_phone_number_id = (school.get("whatsapp_phone_number_id") if school else None) or WHATSAPP_PHONE_NUMBER_ID
+    counts = {channel: 0 for channel in channels}
+    skipped = 0
+    failures = 0
+    skipped_students = []
+    parent_user_available = "parent_user_id" in has_table_columns("students", {"parent_user_id"})
+
+    for student in students:
+        payload = _bulk_grade_report(student, school_id, school_name, sender_name, term, custom_message)
+        if not payload:
+            skipped += 1
+            skipped_students.append(f"{student['name']} (no grades saved for the selected term)")
+            continue
+        delivered = False
+        parent_email = student.get("parent_email")
+        parent_phone = student.get("parent_contact")
+        if "email" in channels and parent_email:
+            sent, _ = send_email(parent_email, subject, payload["email_body"], sender_name,
+                                 attachment=payload["attachment"], attachment_filename=payload["attachment_filename"])
+            if sent:
+                counts["email"] += 1
+                delivered = True
+            else:
+                failures += 1
+        if "sms" in channels and parent_phone:
+            sent, _ = send_text_message(parent_phone, payload["sms_body"])
+            if sent:
+                counts["sms"] += 1
+                delivered = True
+            else:
+                failures += 1
+        if "whatsapp" in channels and parent_phone and whatsapp_access_token and whatsapp_phone_number_id:
+            if payload["attachment"]:
+                file_id, filename = save_temp_file(payload["attachment"][0], "pdf")
+                if file_id:
+                    file_path = os.path.join(TEMP_FILES_DIR, filename)
+                    with open(file_path, "rb") as report_file:
+                        media_id, _ = upload_whatsapp_media(
+                            report_file.read(), filename, payload["attachment"][1],
+                            access_token=whatsapp_access_token,
+                            phone_number_id=whatsapp_phone_number_id,
+                        )
+                    if media_id:
+                        sent, _ = send_whatsapp_api_message({
+                            "messaging_product": "whatsapp", "to": normalize_phone_number(parent_phone),
+                            "type": "document", "document": {"id": media_id, "filename": payload["attachment_filename"]},
+                        }, access_token=whatsapp_access_token, phone_number_id=whatsapp_phone_number_id)
+                    else:
+                        sent = False
+                else:
+                    sent = False
+            else:
+                sent, _ = send_whatsapp_api_message({
+                    "messaging_product": "whatsapp", "to": normalize_phone_number(parent_phone),
+                    "type": "text", "text": {"preview_url": False, "body": payload["sms_body"]},
+                }, access_token=whatsapp_access_token, phone_number_id=whatsapp_phone_number_id)
+            if sent:
+                counts["whatsapp"] += 1
+                delivered = True
+            else:
+                failures += 1
+        if "app" in channels and parent_user_available and student.get("parent_user_id"):
+            query_db(
+                "INSERT INTO messages (sender_id, recipient_id, school_id, subject, body, read_at, delivery_method) VALUES (?, ?, ?, ?, ?, NULL, ?)",
+                (session.get("user_id"), student["parent_user_id"], school_id, subject, payload["email_body"], "app"),
+                commit=True,
+            )
+            counts["app"] += 1
+            delivered = True
+        if not delivered:
+            skipped += 1
+            reasons = []
+            if "app" in channels and (not parent_user_available or not student.get("parent_user_id")):
+                reasons.append("parent has no linked app account")
+            if "email" in channels and not parent_email:
+                reasons.append("no parent email")
+            if "sms" in channels and not parent_phone:
+                reasons.append("no parent phone")
+            if "whatsapp" in channels:
+                if not parent_phone:
+                    reasons.append("no parent phone for WhatsApp")
+                elif not whatsapp_access_token or not whatsapp_phone_number_id:
+                    reasons.append("WhatsApp is not configured")
+            skipped_students.append(f"{student['name']} ({'; '.join(reasons) or 'no delivery completed'})")
+
+    summary = ", ".join(f"{channel.title()}: {count}" for channel, count in counts.items())
+    skipped_summary = f" Skipped students: {'; '.join(skipped_students)}." if skipped_students else ""
+    flash(f"Bulk grade send complete. {summary}. Skipped: {skipped}. Failures: {failures}.{skipped_summary}", "success" if not failures and not skipped else "warning")
+    return redirect(url_for("grades", grade=grade, section=section, term=term))
 
 
 @app.route("/send_grades", methods=["POST"])
@@ -3157,15 +3649,21 @@ def send_grades():
 
     # Get teacher/head remarks and attendance from student_reports
     teacher_remarks = ""
+    head_remarks = ""
     attendance_present = None
     attendance_total = None
+    conduct = ""
+    promoted_to = ""
+    signature = ""
+    interest = ""
     position = ""
     class_size = ""
     reopening_date = ""
     report_term = term
     report = get_student_report_row(student_id, school_id, term if term else None)
     if report:
-        teacher_remarks = report.get("teacher_remarks") or report.get("head_remarks") or ""
+        teacher_remarks = report.get("teacher_remarks") or ""
+        head_remarks = report.get("head_remarks") or ""
         attendance_present = report.get("attendance_present")
         attendance_total = report.get("attendance_total")
         conduct = report.get("conduct") or ""
@@ -3216,6 +3714,7 @@ def send_grades():
         class_size,
         position,
         reopening_date,
+        head_remarks=head_remarks,
     )
 
     safe_student_name = secure_filename(student["name"].replace(" ", "_")) or "student"
@@ -3228,8 +3727,9 @@ def send_grades():
         attachment = (pdf_bytes, "application/pdf")
         attachment_filename = f"grade_report_{safe_student_name}_{datetime.now().strftime('%Y%m%d')}.pdf"
     else:
-        attachment = (report_document.encode("utf-8"), "text/html")
-        attachment_filename = f"grade_report_{safe_student_name}_{datetime.now().strftime('%Y%m%d')}.html"
+        # Do not attach raw HTML when PDF rendering is unavailable.
+        attachment = None
+        attachment_filename = ""
 
     if not grades_data:
         flash("No grade records found for this student. Please save grades before sending.", "warning")
@@ -3262,6 +3762,9 @@ def send_grades():
             message += f"Teacher's Remarks: {teacher_remarks}\n"
         return message
 
+    if not pdf_bytes:
+        email_body += "\n\n" + format_grade_table(grades_data, teacher_remarks)
+
     if send_method == "email":
         if student.get("parent_email"):
             success, error_msg = send_email(
@@ -3273,7 +3776,8 @@ def send_grades():
                 attachment_filename=attachment_filename,
             )
             if success:
-                flash(f"Grade report sent to {student['parent_email']} via email as a PDF attachment.", "success")
+                delivery_note = " as a PDF attachment" if pdf_bytes else " in the email body"
+                flash(f"Grade report sent to {student['parent_email']} via email{delivery_note}.", "success")
             else:
                 flash(f"Failed to send email to {student['parent_email']}: {error_msg}", "error")
         else:
@@ -4596,6 +5100,13 @@ def create_announcement():
                     if not success:
                         results["errors"].append(f"WhatsApp failed for {phone}: {error}")
                         print(f"WhatsApp error for {phone}: {error}")
+
+        if delivery_method in ("text", "all"):
+            students = query_db("SELECT s.parent_contact FROM students s WHERE s.school_id = ? AND s.active = 1 AND s.parent_contact IS NOT NULL AND s.parent_contact != ''", (school_id,))
+            for student in students:
+                sent, error = send_text_message(student["parent_contact"], f"{title}\n\n{content}")
+                if not sent:
+                    results["errors"].append(f"SMS failed for {student['parent_contact']}: {error}")
 
         if delivery_method in ("app", "all"):
             all_users = query_db("SELECT id FROM users WHERE school_id = ? AND active = 1", (school_id,))

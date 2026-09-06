@@ -74,6 +74,47 @@
                 </div>
             </div>
         </form>
+        <form method="post" action="{{ url_for('promote_term3') }}" class="promotion-form" onsubmit="return confirm('Promote this class to the next grade and assign Sections A, B, and C by Term 3 average?');">
+            <input type="hidden" name="grade" value="{{ selected_grade }}">
+            <input type="hidden" name="section" value="{{ selected_section }}">
+            <button type="submit" class="primary-btn">Promote Term 3 Class</button>
+            <small>Uses saved Term 3 grades. Highest averages go to Section A, middle averages to B, and lowest averages to C.</small>
+        </form>
+    </div>
+
+    <div class="card bulk-send-card">
+        <div class="card-header">
+            <div>
+                <h2 class="card-title">Send Class Grades</h2>
+                <p class="card-subtitle">Send each student's report privately to their parent.</p>
+            </div>
+        </div>
+        <form method="post" action="{{ url_for('send_grades_bulk') }}" id="bulkGradeForm">
+            <input type="hidden" name="grade" value="{{ selected_grade }}">
+            <input type="hidden" name="section" value="{{ selected_section }}">
+            <input type="hidden" name="term" value="{{ selected_term }}">
+            <div class="form-row">
+                <div class="form-field">
+                    <label for="bulkSubject">Subject</label>
+                    <input id="bulkSubject" name="subject" value="Grade Reports" required>
+                </div>
+                <div class="form-field">
+                    <label for="bulkMessage">Optional message</label>
+                    <input id="bulkMessage" name="message" placeholder="Add a note to every parent">
+                </div>
+            </div>
+            <div class="form-field">
+                <label>Delivery channels</label>
+                <div class="bulk-channel-options">
+                    <label><input type="checkbox" name="channels" value="app" checked> App</label>
+                    <label><input type="checkbox" name="channels" value="email"> Email</label>
+                    <label><input type="checkbox" name="channels" value="sms"> SMS</label>
+                    <label><input type="checkbox" name="channels" value="whatsapp"> WhatsApp</label>
+                </div>
+                <small>The current class/section filter and term will be used. Each parent receives only their own student's report.</small>
+            </div>
+            <button type="submit" class="primary-btn" onclick="return confirm('Send grade reports to every student currently shown?');">Send Class Grades</button>
+        </form>
     </div>
 
     <!-- Student List Card -->
