@@ -253,12 +253,13 @@
                         <div class="grade-summary">
                             <div class="form-row">
                                 <div class="form-field">
-                                    <label>Attendance (Present/Total)</label>
+                                    <label>Attendance (from attendance register)</label>
                                     <div class="attendance-inputs">
-                                        <input type="number" name="attendance_present" min="0" max="100" value="0" style="width: 70px;">
+                                        <input type="number" name="attendance_present" min="0" value="{{ attendance_present or 0 }}" style="width: 70px;" readonly aria-readonly="true">
                                         <span>/</span>
-                                        <input type="number" name="attendance_total" min="0" max="100" value="0" style="width: 70px;">
+                                        <input type="number" name="attendance_total" min="0" value="{{ attendance_total or 0 }}" style="width: 70px;" readonly aria-readonly="true">
                                     </div>
+                                    <small class="attendance-auto-note">Automatically calculated from saved attendance.</small>
                                 </div>
                                 <div class="form-field">
                                     <label>Promoted To</label>
@@ -889,6 +890,11 @@ function viewStudentGrades(studentId) {
 
      document.getElementById('modalStudentName').textContent = `${student.name} - Grades`;
      document.getElementById('modalStudentId').value = student.id;
+
+    const attendancePresentInput = document.querySelector('input[name="attendance_present"]');
+    const attendanceTotalInput = document.querySelector('input[name="attendance_total"]');
+    if (attendancePresentInput) attendancePresentInput.value = student.attendance_present || 0;
+    if (attendanceTotalInput) attendanceTotalInput.value = student.attendance_total || 0;
 
      const gradeEntries = document.getElementById('gradeEntries');
      gradeEntries.innerHTML = '';

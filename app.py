@@ -1599,6 +1599,8 @@ def attendance():
     # Get filter parameters
     selected_grade = request.args.get("grade", "").strip()
     selected_section = request.args.get("section", "").strip()
+    selected_term = request.args.get("term", "").strip()
+    selected_month = request.args.get("month", "").strip()
 
     if user_role == ROLE_PARENT:
         base_query = "SELECT * FROM students WHERE school_id = ? AND active = 1 AND parent_user_id = ?"
@@ -1677,6 +1679,12 @@ def attendance():
         student["age"] = calculate_age(student.get("date_of_birth"))
 
     week_start_param = request.args.get("week_start", "").strip()
+    if not week_start_param and selected_month:
+        try:
+            selected_month_date = datetime.strptime(selected_month, "%Y-%m").date()
+            week_start_param = (selected_month_date - timedelta(days=selected_month_date.weekday())).isoformat()
+        except ValueError:
+            selected_month = ""
     if week_start_param:
         try:
             week_start = datetime.strptime(week_start_param, "%Y-%m-%d").date()
@@ -1757,14 +1765,14 @@ def attendance():
     def term_present_count(student):
         count = 0
         for date_str in term_dates:
-            if is_present_for_term(student, date_str, "AM"):
-                count += 1
-            if term_rows_have_session and is_present_for_term(student, date_str, "PM"):
+            if is_present_for_term(student, date_str, "AM") or (
+                term_rows_have_session and is_present_for_term(student, date_str, "PM")
+            ):
                 count += 1
         return count
 
     term_weeks = school_settings.get("attendance_term_weeks") or 12
-    term_total_slots = term_weeks * 5 * (2 if term_rows_have_session else 1)
+    term_total_slots = term_weeks * 5
 
     school = query_db("SELECT * FROM schools WHERE id = ?", (school_id,), one=True)
     school_name = school["name"] if school else ""
@@ -1772,17 +1780,27 @@ def attendance():
     section = (students[0]["section"] if students else "") or ""
     class_name = f"{grade} {section}".strip() if grade or section else "Class"
     academic_year = f"{today.year}/{today.year + 1}"
-    current_month_choice = request.args.get("month", today.strftime("%Y-%m"))
+    school_term = ""
     try:
-        year_for_term, month_for_term = map(int, current_month_choice.split("-"))
-        term = datetime(year_for_term, month_for_term, 1).strftime("%B, %Y")
+        school_term = (query_db("SELECT academic_term FROM schools WHERE id = ?", (school_id,), one=True) or {}).get("academic_term", "") or ""
+    except Exception:
+        school_term = ""
+    term_options = ["Term 1", "Term 2", "Term 3"]
+    selected_term = selected_term or school_term or "Term 1"
+    term = selected_term
+    try:
+        datetime.strptime(selected_month, "%Y-%m")
     except ValueError:
-        term = today.strftime("%B, %Y")
+        selected_month = week_start.strftime("%Y-%m")
+    month_label = datetime.strptime(selected_month, "%Y-%m").strftime("%B %Y")
 
     class_teacher = session.get("user_name", "")
 
     prev_week = (week_start - timedelta(days=7)).isoformat()
     next_week = (week_start + timedelta(days=7)).isoformat()
+    today_week = (today - timedelta(days=today.weekday())).isoformat()
+    prev_month = (week_start - timedelta(days=7)).strftime("%Y-%m")
+    next_month = (week_start + timedelta(days=7)).strftime("%Y-%m")
 
     return render_template(
         "attendance.html",
@@ -1790,6 +1808,8 @@ def attendance():
         class_name=class_name,
         academic_year=academic_year,
         term=term,
+        selected_month=selected_month,
+        month_label=month_label,
         class_teacher=class_teacher,
         week_start=week_start.isoformat(),
         week_dates=week_dates,
@@ -1797,13 +1817,149 @@ def attendance():
         students=students,
         grades=grade_levels,
         sections=sections,
+        term_options=term_options,
         prev_week=prev_week,
         next_week=next_week,
+        today_week=today_week,
+        prev_month=prev_month,
+        next_month=next_month,
         is_present=is_present,
         week_present_count=week_present_count,
         term_present_count=term_present_count,
         term_total_slots=term_total_slots,
+        term_weeks=term_weeks,
         term_dates=term_dates,
+    )
+
+
+@app.route("/attendance/settings", methods=["POST"])
+@login_required
+@teacher_required
+def save_attendance_settings():
+    term_weeks = request.form.get("term_weeks", type=int)
+    if not term_weeks or not 1 <= term_weeks <= 52:
+        flash("Term weeks must be between 1 and 52.", "error")
+    else:
+        query_db(
+            "UPDATE schools SET attendance_term_weeks = ? WHERE id = ?",
+            (term_weeks, session.get("school_id")),
+            commit=True,
+        )
+        flash(f"Attendance term updated to {term_weeks} weeks ({term_weeks * 5} school days).", "success")
+
+    return redirect(url_for(
+        "attendance",
+        week_start=request.form.get("week_start", ""),
+        month=request.form.get("month", ""),
+        grade=request.form.get("grade", ""),
+        section=request.form.get("section", ""),
+        term=request.form.get("term", ""),
+    ))
+
+
+@app.route("/attendance/download")
+@login_required
+def download_attendance():
+    """Download the currently selected attendance week as a CSV file."""
+    from datetime import datetime, timedelta
+
+    school_id = session.get("school_id")
+    selected_grade = request.args.get("grade", "").strip()
+    selected_section = request.args.get("section", "").strip()
+    week_start_value = request.args.get("week_start", "").strip()
+
+    try:
+        week_start = datetime.strptime(week_start_value, "%Y-%m-%d").date()
+    except ValueError:
+        week_start = datetime.now().date() - timedelta(days=datetime.now().weekday())
+
+    week_dates = [(week_start + timedelta(days=index)).isoformat() for index in range(5)]
+    student_query = "SELECT id, name, student_number, grade, section, date_of_birth FROM students WHERE school_id = ? AND active = 1"
+    student_params = [school_id]
+    if session.get("role") == ROLE_PARENT:
+        student_query += " AND parent_user_id = ?"
+        student_params.append(session.get("user_id"))
+    if selected_grade:
+        student_query += " AND grade = ?"
+        student_params.append(selected_grade)
+    if selected_section:
+        student_query += " AND section = ?"
+        student_params.append(selected_section)
+    student_query += " ORDER BY grade, section, name"
+    students = query_db(student_query, tuple(student_params))
+
+    try:
+        attendance_rows = query_db(
+            "SELECT student_id, date, status, session FROM attendances WHERE school_id = ? AND date IN (?,?,?,?,?)",
+            (school_id, *week_dates),
+        )
+        rows_have_session = True
+    except Exception:
+        attendance_rows = query_db(
+            "SELECT student_id, date, status FROM attendances WHERE school_id = ? AND date IN (?,?,?,?,?)",
+            (school_id, *week_dates),
+        )
+        rows_have_session = False
+
+    try:
+        term_rows = query_db(
+            "SELECT student_id, date, status, session FROM attendances WHERE school_id = ?",
+            (school_id,),
+        )
+        term_rows_have_session = True
+    except Exception:
+        term_rows = query_db(
+            "SELECT student_id, date, status FROM attendances WHERE school_id = ?",
+            (school_id,),
+        )
+        term_rows_have_session = False
+
+    attendance_index = {(row["student_id"], row["date"], row.get("session")): row["status"] for row in attendance_rows}
+    term_index = {(row["student_id"], row["date"], row.get("session")): row["status"] for row in term_rows}
+
+    def marked_present(index, student_id, date_str, session_slot, has_session):
+        if has_session:
+            return index.get((student_id, date_str, session_slot)) == "present"
+        return index.get((student_id, date_str, None)) == "present"
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([
+        "S/N", "Student Name", "Student Number", "Grade", "Section",
+        *[datetime.strptime(date_str, "%Y-%m-%d").strftime("%a %d %b") for date_str in week_dates],
+        "Weekly Present", "Term Present",
+    ])
+    for index, student in enumerate(students, start=1):
+        weekly_total = 0
+        day_values = []
+        for date_str in week_dates:
+            day_present = marked_present(attendance_index, student["id"], date_str, "AM", rows_have_session)
+            if rows_have_session:
+                day_present = day_present or marked_present(attendance_index, student["id"], date_str, "PM", rows_have_session)
+            if day_present:
+                weekly_total += 1
+            day_values.append("Present" if day_present else "Not marked")
+
+        term_total = sum(
+            1 for (student_id, date_str, session_slot), status in term_index.items()
+            if student_id == student["id"] and status == "present"
+            and (term_rows_have_session or session_slot is None)
+        )
+        writer.writerow([
+            index, student["name"], student.get("student_number") or "",
+            student.get("grade") or "", student.get("section") or "",
+            *day_values, weekly_total, term_total,
+        ])
+
+    filename_parts = ["attendance", week_start.isoformat()]
+    if selected_grade:
+        filename_parts.append(secure_filename(selected_grade))
+    if selected_section:
+        filename_parts.append(secure_filename(selected_section))
+    return Response(
+        output.getvalue(),
+        mimetype="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={'_'.join(filename_parts)}.csv"},
     )
 
 
@@ -2280,6 +2436,29 @@ def grades():
         grades_params.append(selected_term)
     
     student_grades = query_db(grades_query, tuple(grades_params))
+
+    try:
+        attendance_rows = query_db(
+            "SELECT student_id, date, status, session FROM attendances WHERE school_id = ?",
+            (school_id,),
+        )
+        attendance_has_session = True
+    except Exception:
+        attendance_rows = query_db(
+            "SELECT student_id, date, status FROM attendances WHERE school_id = ?",
+            (school_id,),
+        )
+        attendance_has_session = False
+    attendance_dates_by_student = {}
+    for row in attendance_rows:
+        if row["status"] == "present":
+            attendance_dates_by_student.setdefault(row["student_id"], set()).add(row["date"])
+    attendance_settings = query_db(
+        "SELECT attendance_term_weeks FROM schools WHERE id = ?",
+        (school_id,), one=True,
+    ) or {}
+    attendance_term_weeks = attendance_settings.get("attendance_term_weeks") or 12
+    attendance_total = attendance_term_weeks * 5
     
     # Organize grades by student
     grades_by_student = {}
@@ -2293,6 +2472,8 @@ def grades():
     for student in students:
         student_dict = dict(student)
         student_dict["grades"] = grades_by_student.get(student["id"], {})
+        student_dict["attendance_present"] = len(attendance_dates_by_student.get(student["id"], set()))
+        student_dict["attendance_total"] = attendance_total
         if selected_term:
             report = query_db(
                 "SELECT head_remarks, teacher_remarks, interest, conduct, signature FROM student_reports WHERE student_id = ? AND school_id = ? AND term = ?",
@@ -2361,8 +2542,8 @@ def grades():
              })
 
     # Load report metadata for the selected student and term
-    attendance_present = None
-    attendance_total = None
+    attendance_present = 0
+    attendance_total = attendance_total
     promoted_to = None
     conduct = None
     interest = None
@@ -2378,13 +2559,14 @@ def grades():
             (selected_student_id, school_id, selected_term), one=True
         )
         if report_data:
-            attendance_present = report_data.get("attendance_present")
-            attendance_total = report_data.get("attendance_total")
             promoted_to = report_data.get("promoted_to")
             conduct = report_data.get("conduct")
             interest = report_data.get("interest")
             teacher_remarks = report_data.get("teacher_remarks")
             head_remarks = report_data.get("head_remarks")
+
+    if selected_student:
+        attendance_present = selected_student.get("attendance_present", 0)
 
     # Calculate report total
     report_total = sum(
@@ -3086,9 +3268,30 @@ def save_grades():
     # Get form data
     subjects = request.form.getlist("subject")
     
-    # Get report metadata
-    attendance_present = request.form.get("attendance_present")
-    attendance_total = request.form.get("attendance_total")
+    # Attendance is always sourced from the attendance register, never typed into Grades.
+    try:
+        attendance_rows = query_db(
+            "SELECT student_id, status, session FROM attendances WHERE school_id = ?",
+            (school_id,),
+        )
+        attendance_has_session = True
+    except Exception:
+        attendance_rows = query_db(
+            "SELECT student_id, status FROM attendances WHERE school_id = ?",
+            (school_id,),
+        )
+        attendance_has_session = False
+    attendance_present = len({
+        row["date"] for row in attendance_rows
+        if row["student_id"] == student_id and row["status"] == "present"
+    })
+    attendance_settings = query_db(
+        "SELECT attendance_term_weeks FROM schools WHERE id = ?",
+        (school_id,), one=True,
+    ) or {}
+    attendance_total = (attendance_settings.get("attendance_term_weeks") or 12) * 5
+
+    # Get the remaining report metadata.
     promoted_to = request.form.get("promoted_to")
     conduct = request.form.get("conduct")
     interest = request.form.get("interest")
@@ -3127,8 +3330,8 @@ def save_grades():
         "teacher_remarks","head_remarks","signature",
     ]
     base_values = [
-        attendance_present or None,
-        attendance_total or None,
+        attendance_present,
+        attendance_total,
         promoted_to or None,
         conduct or None,
         interest or None,
