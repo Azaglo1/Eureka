@@ -32,32 +32,36 @@
                 </div>
             </div>
 
+            <div class="weight-save-row">
+                <button type="submit" name="action" value="save_weights" class="primary-btn weight-save-button">Save Grade Weights</button>
+            </div>
+
             <div class="grade-weights-grid">
                 <div class="form-field">
                     <label for="class_test_weight">Class Test Weight (%)</label>
                     <input type="number" id="class_test_weight" name="class_test_weight" min="0" max="100" step="0.1" 
-                           value="{{ settings.class_test_weight * 100 if settings.class_test_weight else 20 }}" required>
+                              value="{{ settings.class_test_weight * 100 if settings.class_test_weight is not none else 20 }}" required>
                     <small>Current default: 20%</small>
                 </div>
 
                 <div class="form-field">
                     <label for="midterm_exam_weight">Midterm Exam Weight (%)</label>
                     <input type="number" id="midterm_exam_weight" name="midterm_exam_weight" min="0" max="100" step="0.1" 
-                           value="{{ settings.midterm_exam_weight * 100 if settings.midterm_exam_weight else 20 }}" required>
+                              value="{{ settings.midterm_exam_weight * 100 if settings.midterm_exam_weight is not none else 20 }}" required>
                     <small>Current default: 20%</small>
                 </div>
 
                 <div class="form-field">
                     <label for="class_score_weight">Class Score Weight (%)</label>
                     <input type="number" id="class_score_weight" name="class_score_weight" min="0" max="100" step="0.1" 
-                           value="{{ settings.class_score_weight * 100 if settings.class_score_weight else 10 }}" required>
+                              value="{{ settings.class_score_weight * 100 if settings.class_score_weight is not none else 10 }}" required>
                     <small>Current default: 10%</small>
                 </div>
 
                 <div class="form-field">
                     <label for="final_exam_weight">Final Exam Weight (%)</label>
                     <input type="number" id="final_exam_weight" name="final_exam_weight" min="0" max="100" step="0.1" 
-                           value="{{ settings.final_exam_weight * 100 if settings.final_exam_weight else 50 }}" required>
+                              value="{{ settings.final_exam_weight * 100 if settings.final_exam_weight is not none else 50 }}" required>
                     <small>Current default: 50%</small>
                 </div>
             </div>
@@ -208,8 +212,7 @@
                         {% for grade in grade_levels %}
                         <div class="grade-item">
                             <span class="grade-name">{{ grade.name }}</span>
-                            <input type="hidden" name="grade_id" value="{{ grade.id }}">
-                                <button type="submit" name="action" value="remove_grade" class="btn-icon btn-outline btn-danger" title="Remove" formnovalidate onclick="return confirm('Are you sure you want to remove this grade level? Students assigned to this grade will need to be reassigned.')">
+                                <button type="submit" name="grade_id" value="{{ grade.id }}" class="btn-icon btn-outline btn-danger" title="Remove" formnovalidate onclick="return confirm('Are you sure you want to remove this grade level? Students assigned to this grade will need to be reassigned.')">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <line x1="18" y1="6" x2="6" y2="18"/>
                                     <line x1="6" y1="6" x2="18" y2="18"/>
@@ -638,6 +641,16 @@
     font-size: 1.1rem;
 }
 
+.weight-save-button {
+    min-width: 220px;
+}
+
+.weight-save-row {
+    display: flex;
+    justify-content: flex-start;
+    padding: 0 1.5rem 1rem;
+}
+
 .total-message {
     margin-left: 1rem;
     font-size: 0.9rem;
@@ -799,6 +812,17 @@ document.addEventListener('DOMContentLoaded', function() {
             totalMessage.textContent = 'Total must equal 100%';
             totalMessage.className = 'total-message invalid';
         }
+    }
+
+    // Convert legacy saved values if the loaded inputs exceed 100%.
+    let initialTotal = 0;
+    weightInputs.forEach(input => {
+        initialTotal += parseFloat(input.value) || 0;
+    });
+    if (initialTotal > 100) {
+        weightInputs.forEach(input => {
+            input.value = ((parseFloat(input.value) || 0) / initialTotal * 100).toFixed(1);
+        });
     }
 
     weightInputs.forEach(input => {

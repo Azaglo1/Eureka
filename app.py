@@ -2410,10 +2410,10 @@ def grades():
         (school_id,), one=True
     )
     if school_weights:
-        class_test_weight = school_weights["class_test_weight"] or 0.20
-        midterm_exam_weight = school_weights["midterm_exam_weight"] or 0.20
-        class_score_weight = school_weights["class_score_weight"] or 0.10
-        final_exam_weight = school_weights["final_exam_weight"] or 0.50
+        class_test_weight = school_weights["class_test_weight"] if school_weights["class_test_weight"] is not None else 0.20
+        midterm_exam_weight = school_weights["midterm_exam_weight"] if school_weights["midterm_exam_weight"] is not None else 0.20
+        class_score_weight = school_weights["class_score_weight"] if school_weights["class_score_weight"] is not None else 0.10
+        final_exam_weight = school_weights["final_exam_weight"] if school_weights["final_exam_weight"] is not None else 0.50
     else:
         class_test_weight = 0.20
         midterm_exam_weight = 0.20
@@ -3308,10 +3308,10 @@ def save_grades():
         (school_id,), one=True
     )
     if school_weights:
-        class_test_weight = school_weights["class_test_weight"] or 0.20
-        midterm_exam_weight = school_weights["midterm_exam_weight"] or 0.20
-        class_score_weight = school_weights["class_score_weight"] or 0.10
-        final_exam_weight = school_weights["final_exam_weight"] or 0.50
+        class_test_weight = school_weights["class_test_weight"] if school_weights["class_test_weight"] is not None else 0.20
+        midterm_exam_weight = school_weights["midterm_exam_weight"] if school_weights["midterm_exam_weight"] is not None else 0.20
+        class_score_weight = school_weights["class_score_weight"] if school_weights["class_score_weight"] is not None else 0.10
+        final_exam_weight = school_weights["final_exam_weight"] if school_weights["final_exam_weight"] is not None else 0.50
     else:
         class_test_weight = 0.20
         midterm_exam_weight = 0.20
@@ -3551,10 +3551,10 @@ def student_grade_report(student_id):
         class_size = report.get("class_size") or ""
         reopening_date = report.get("reopening_date") or ""
 
-    class_test_weight = (school.get("class_test_weight") if school else None) or 0.20
-    midterm_exam_weight = (school.get("midterm_exam_weight") if school else None) or 0.20
-    class_score_weight = (school.get("class_score_weight") if school else None) or 0.10
-    final_exam_weight = (school.get("final_exam_weight") if school else None) or 0.50
+    class_test_weight = school.get("class_test_weight") if school and school.get("class_test_weight") is not None else 0.20
+    midterm_exam_weight = school.get("midterm_exam_weight") if school and school.get("midterm_exam_weight") is not None else 0.20
+    class_score_weight = school.get("class_score_weight") if school and school.get("class_score_weight") is not None else 0.10
+    final_exam_weight = school.get("final_exam_weight") if school and school.get("final_exam_weight") is not None else 0.50
 
     report_document = build_grade_report_document(
         student,
@@ -3624,10 +3624,10 @@ def _bulk_grade_report(student, school_id, school_name, sender_name, term, custo
         (school_id,), one=True
     ) or {}
     weights = [
-        school_weights.get("class_test_weight") or 0.20,
-        school_weights.get("midterm_exam_weight") or 0.20,
-        school_weights.get("class_score_weight") or 0.10,
-        school_weights.get("final_exam_weight") or 0.50,
+        school_weights.get("class_test_weight") if school_weights.get("class_test_weight") is not None else 0.20,
+        school_weights.get("midterm_exam_weight") if school_weights.get("midterm_exam_weight") is not None else 0.20,
+        school_weights.get("class_score_weight") if school_weights.get("class_score_weight") is not None else 0.10,
+        school_weights.get("final_exam_weight") if school_weights.get("final_exam_weight") is not None else 0.50,
     ]
     report_document = build_grade_report_document(
         student, school_name, sender_name, grades_data, teacher_remarks, report_term,
@@ -3887,10 +3887,10 @@ def send_grades():
         (school_id,), one=True
     )
     if school_weights:
-        class_test_weight = school_weights["class_test_weight"] or 0.20
-        midterm_exam_weight = school_weights["midterm_exam_weight"] or 0.20
-        class_score_weight = school_weights["class_score_weight"] or 0.10
-        final_exam_weight = school_weights["final_exam_weight"] or 0.50
+        class_test_weight = school_weights["class_test_weight"] if school_weights["class_test_weight"] is not None else 0.20
+        midterm_exam_weight = school_weights["midterm_exam_weight"] if school_weights["midterm_exam_weight"] is not None else 0.20
+        class_score_weight = school_weights["class_score_weight"] if school_weights["class_score_weight"] is not None else 0.10
+        final_exam_weight = school_weights["final_exam_weight"] if school_weights["final_exam_weight"] is not None else 0.50
     else:
         class_test_weight = 0.20
         midterm_exam_weight = 0.20
@@ -4250,6 +4250,20 @@ def admin_settings():
         except Exception:
             settings = {}
 
+    # Older records may contain weights on a different scale. Normalize them
+    # before displaying the percentage inputs, whose canonical total is 1.0.
+    weight_keys = ("class_test_weight", "midterm_exam_weight", "class_score_weight", "final_exam_weight")
+    stored_weights = [settings.get(key) for key in weight_keys]
+    if all(weight is not None for weight in stored_weights):
+        try:
+            weight_total = sum(float(weight) for weight in stored_weights)
+            if weight_total > 1.0001:
+                scale = 100 if abs(weight_total - 100) < 0.01 else weight_total
+                for key in weight_keys:
+                    settings[key] = float(settings[key]) / scale
+        except (TypeError, ValueError):
+            pass
+
     # Get current sections for this school
     try:
         sections = query_db(
@@ -4339,6 +4353,8 @@ def admin_settings_save():
         school_id = session.get("school_id")
 
     action = request.form.get("action", "")
+    if not action and request.form.get("grade_id", type=int):
+        action = "remove_grade"
 
     if action == "save_weights":
         class_test = float(request.form.get("class_test_weight", 20)) / 100
