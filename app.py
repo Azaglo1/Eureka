@@ -6958,10 +6958,23 @@ def teacher_assignments():
         "SELECT id, name FROM school_sections WHERE school_id = ? ORDER BY name",
         (user_school_id,),
     )
+
+    assignments_by_teacher = {}
+    for assignment in assignments or []:
+        teacher_id = assignment["teacher_id"]
+        if teacher_id not in assignments_by_teacher:
+            assignments_by_teacher[teacher_id] = {
+                "teacher_id": teacher_id,
+                "teacher_name": assignment["teacher_name"],
+                "teacher_email": assignment["teacher_email"],
+                "assignments": [],
+            }
+        assignments_by_teacher[teacher_id]["assignments"].append(assignment)
     
     return render_template(
         "teacher_assignments.html",
         assignments=assignments,
+        assignment_groups=list(assignments_by_teacher.values()),
         teachers=teachers,
         grades=grades,
         sections=sections,
@@ -6974,14 +6987,24 @@ def teacher_assignments():
 @admin_required
 def create_teacher_assignment():
     teacher_id = request.form.get("teacher_id")
-    grade = request.form.get("grade", "").strip() or None
-    section = request.form.get("section", "").strip() or None
-    subject = request.form.get("subject", "").strip() or None
     responsibility = request.form.get("responsibility", "").strip()
     is_primary = 1 if request.form.get("is_primary") else 0
+    grades = request.form.getlist("class_grade")
+    sections = request.form.getlist("class_section")
+    subjects = request.form.getlist("class_subject")
+
+    class_rows = []
+    for index in range(max(len(grades), len(sections), len(subjects))):
+        row = {
+            "grade": (grades[index] if index < len(grades) else "").strip() or None,
+            "section": (sections[index] if index < len(sections) else "").strip() or None,
+            "subject": (subjects[index] if index < len(subjects) else "").strip() or None,
+        }
+        if any(row.values()):
+            class_rows.append(row)
     
-    if not teacher_id or not responsibility:
-        flash("Teacher and responsibility are required.", "warning")
+    if not teacher_id or not responsibility or not class_rows:
+        flash("Teacher, responsibility, and at least one class are required.", "warning")
         return redirect(url_for("teacher_assignments"))
     
     # Verify teacher exists and is active
@@ -7009,24 +7032,45 @@ def create_teacher_assignment():
             return redirect(url_for("teacher_assignments"))
         school_id = session.get("school_id")
     
-    # Check for duplicate assignment
-    existing = query_db(
-        "SELECT id FROM teacher_assignments WHERE teacher_id = ? AND grade = ? AND section = ? AND subject = ? AND active = 1",
-        (teacher_id, grade, section, subject),
-        one=True,
+    existing_assignments = query_db(
+        "SELECT grade, section, subject FROM teacher_assignments WHERE teacher_id = ? AND active = 1",
+        (teacher_id,),
     )
-    if existing:
-        flash("This teacher already has an assignment for this grade/section/subject combination.", "warning")
-        return redirect(url_for("teacher_assignments"))
+    existing_keys = {
+        (assignment["grade"], assignment["section"], assignment["subject"])
+        for assignment in existing_assignments
+    }
+    submitted_keys = set()
+    for row in class_rows:
+        key = (row["grade"], row["section"], row["subject"])
+        if key in existing_keys or key in submitted_keys:
+            flash("One or more selected class/subject combinations already exist for this teacher.", "warning")
+            return redirect(url_for("teacher_assignments"))
+        submitted_keys.add(key)
 
-    # Insert the teacher assignment
-    query_db(
+    insert_params = [
+        (
+            teacher_id,
+            school_id,
+            row["grade"],
+            row["section"],
+            row["subject"],
+            responsibility,
+            is_primary if index == 0 else 0,
+        )
+        for index, row in enumerate(class_rows)
+    ]
+    db = get_db()
+    cursor = db.executemany(
         "INSERT INTO teacher_assignments (teacher_id, school_id, grade, section, subject, responsibility, is_primary) VALUES (?, ?, ?, ?, ?, ?, ?)",
-        (teacher_id, school_id, grade, section, subject, responsibility, is_primary),
-        commit=True
+        insert_params,
     )
-    
-    flash(f"Assignment created for {teacher['name']}.", "success")
+    try:
+        db.commit()
+    finally:
+        cursor.close()
+
+    flash(f"{len(class_rows)} assignment(s) created for {teacher['name']}.", "success")
     return redirect(url_for("teacher_assignments"))
 
 

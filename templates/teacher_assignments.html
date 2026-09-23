@@ -24,7 +24,7 @@
                 </svg>
                 Create New Assignment
             </h2>
-            <p class="card-subtitle">Assign a teacher to a grade, section, and subject</p>
+            <p class="card-subtitle">Assign one teacher to several classes and subjects at once</p>
         </div>
 
         <form method="post" action="{{ url_for('create_teacher_assignment') }}" class="assignment-form">
@@ -59,45 +59,44 @@
                     </div>
                 </div>
 
-                <div class="form-row">
+                <div class="form-row class-count-row">
                     <div class="form-field">
-                        <label for="grade">Grade</label>
-                        <input type="text" id="grade" name="grade" 
-                               placeholder="e.g., Grade 1, JSS 1, SS 3" 
-                               list="grade-list" />
-                        <datalist id="grade-list">
-                            <option value="">-- Any --</option>
-                            {% for g in grades %}
-                            <option value="{{ g.name }}">{{ g.name }}</option>
+                        <label for="class-count">Number of classes</label>
+                        <select id="class-count" aria-label="Number of classes to assign">
+                            {% for count in range(1, 11) %}
+                            <option value="{{ count }}">{{ count }}</option>
                             {% endfor %}
-                        </datalist>
+                        </select>
                     </div>
+                    <p class="form-help">Choose how many class and subject combinations you want to enter.</p>
+                </div>
 
-                    <div class="form-field">
-                        <label for="section">Section</label>
-                        <input type="text" id="section" name="section" 
-                               placeholder="e.g., A, B, Section 1" 
-                               list="section-list" />
-                        <datalist id="section-list">
-                            <option value="">-- Any --</option>
-                            {% for s in sections %}
-                            <option value="{{ s.name }}">{{ s.name }}</option>
-                            {% endfor %}
-                        </datalist>
-                    </div>
-
-                    <div class="form-field">
-                        <label for="subject">Subject</label>
-                        <input type="text" id="subject" name="subject" 
-                               placeholder="e.g., Mathematics, English" 
-                               list="subject-list" />
-                        <datalist id="subject-list">
-                            {% for subject in school_subjects %}
-                            <option value="{{ subject.name }}">
-                            {% endfor %}
-                        </datalist>
+                <div id="class-assignment-rows" class="class-assignment-rows">
+                    <div class="form-row class-assignment-row">
+                        <div class="form-field">
+                            <label>Class 1 grade</label>
+                            <input type="text" name="class_grade" placeholder="e.g., Grade 1, JSS 1" list="grade-list" />
+                        </div>
+                        <div class="form-field">
+                            <label>Section</label>
+                            <input type="text" name="class_section" placeholder="e.g., A, B" list="section-list" />
+                        </div>
+                        <div class="form-field">
+                            <label>Subject</label>
+                            <input type="text" name="class_subject" placeholder="e.g., Mathematics" list="subject-list" />
+                        </div>
                     </div>
                 </div>
+
+                <datalist id="grade-list">
+                    {% for g in grades %}<option value="{{ g.name }}">{% endfor %}
+                </datalist>
+                <datalist id="section-list">
+                    {% for s in sections %}<option value="{{ s.name }}">{% endfor %}
+                </datalist>
+                <datalist id="subject-list">
+                    {% for subject in school_subjects %}<option value="{{ subject.name }}">{% endfor %}
+                </datalist>
 
                 <div class="form-field checkbox-field">
                     <label class="checkbox-label">
@@ -135,7 +134,7 @@
                     </svg>
                     Current Teacher Assignments
                 </h2>
-                <p class="card-subtitle">All active and inactive assignments</p>
+                <p class="card-subtitle">Click a teacher's name to view their classes and subjects</p>
             </div>
         </div>
 
@@ -144,66 +143,46 @@
                 <thead>
                     <tr>
                         <th>Teacher</th>
-                        <th>Grade</th>
-                        <th>Section</th>
-                        <th>Subject</th>
-                        <th>Responsibility</th>
-                        <th>Primary</th>
-                        <th>Status</th>
-                        <th>Actions</th>
+                        <th>Assignments</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for assignment in assignments %}
+                    {% for teacher in assignment_groups %}
                     <tr>
                         <td>
-                            <div class="user-cell">
-                                <div class="user-avatar-sm">{{ assignment.teacher_name[0]|upper }}</div>
-                                <div>
-                                    <strong>{{ assignment.teacher_name }}</strong><br>
-                                    <small>{{ assignment.teacher_email or 'No email' }}</small>
+                            <details class="teacher-assignment-details">
+                                <summary>
+                                    <div class="user-cell">
+                                        <div class="user-avatar-sm">{{ teacher.teacher_name[0]|upper }}</div>
+                                        <div>
+                                            <strong>{{ teacher.teacher_name }}</strong><br>
+                                            <small>{{ teacher.teacher_email or 'No email' }}</small>
+                                        </div>
+                                    </div>
+                                </summary>
+                                <div class="assignment-detail-list">
+                                    {% for assignment in teacher.assignments %}
+                                    <div class="assignment-detail-item">
+                                        <div>
+                                            <strong>{{ assignment.grade or 'All grades' }}</strong>
+                                            <span>{{ assignment.section or 'All sections' }}</span>
+                                            <span>{{ assignment.subject or 'All subjects' }}</span>
+                                            <span class="role-tag {{ assignment.responsibility|lower|replace(' ', '-') }}">{{ assignment.responsibility }}</span>
+                                            {% if assignment.is_primary %}<span class="status-badge present">Primary</span>{% endif %}
+                                        </div>
+                                        <form method="post" action="{{ url_for('delete_teacher_assignment', assignment_id=assignment.id) }}" onsubmit="return confirm('Remove this assignment from {{ teacher.teacher_name }}?');">
+                                            <button type="submit" class="danger-btn btn-sm">Remove</button>
+                                        </form>
+                                    </div>
+                                    {% endfor %}
                                 </div>
-                            </div>
+                            </details>
                         </td>
-                        <td><strong>{{ assignment.grade or 'All' }}</strong></td>
-                        <td>{{ assignment.section or 'All' }}</td>
-                        <td>{{ assignment.subject or 'All Subjects' }}</td>
-                        <td>
-                            <span class="role-tag {{ assignment.responsibility|lower|replace(' ', '-') }}">
-                                {{ assignment.responsibility }}
-                            </span>
-                        </td>
-                        <td>
-                            {% if assignment.is_primary %}
-                            <span class="status-badge present">Primary</span>
-                            {% else %}
-                            <span class="status-badge">Secondary</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            <span class="status-badge {{ 'present' if assignment.active else 'absent' }}">
-                                {{ 'Active' if assignment.active else 'Inactive' }}
-                            </span>
-                        </td>
-                        <td>
-                            {% if assignment.active %}
-                            <form method="post" action="{{ url_for('delete_teacher_assignment', assignment_id=assignment.id) }}" 
-                                  style="display: inline;" 
-                                  onsubmit="return confirm('Remove this assignment from {{ assignment.teacher_name }}?');">
-                                <button type="submit" class="danger-btn btn-sm">Remove</button>
-                            </form>
-                            {% else %}
-                            <form method="post" action="{{ url_for('restore_teacher_assignment', assignment_id=assignment.id) }}" 
-                                  style="display: inline;" 
-                                  onsubmit="return confirm('Restore this assignment?');">
-                                <button type="submit" class="success-btn btn-sm">Restore</button>
-                            </form>
-                            {% endif %}
-                        </td>
+                        <td><span class="assignment-count">{{ teacher.assignments|length }}</span></td>
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="8" class="empty-state">
+                        <td colspan="2" class="empty-state">
                             <p>No teacher assignments found.</p>
                             <small>Create your first assignment using the form above.</small>
                         </td>
@@ -293,6 +272,29 @@
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: 1.25rem;
     margin-bottom: 1rem;
+}
+
+.class-count-row {
+    align-items: end;
+}
+
+.form-help {
+    margin: 0 0 0.75rem;
+    color: var(--neutral-500);
+    font-size: 0.875rem;
+}
+
+.class-assignment-rows {
+    display: grid;
+    gap: 0.5rem;
+}
+
+.class-assignment-row {
+    margin-bottom: 0;
+    padding: 1rem;
+    border: 1px solid var(--neutral-200);
+    border-radius: var(--radius);
+    background: white;
 }
 
 .form-field {
@@ -421,6 +423,60 @@
     border: 1px solid var(--neutral-200);
 }
 
+.teacher-assignment-details summary {
+    cursor: pointer;
+    list-style-position: inside;
+}
+
+.teacher-assignment-details summary::marker {
+    color: var(--primary-600);
+}
+
+.assignment-detail-list {
+    display: grid;
+    gap: 0.75rem;
+    margin-top: 0.9rem;
+    padding: 0.9rem;
+    background: var(--neutral-50);
+    border-left: 3px solid var(--primary-500);
+}
+
+.assignment-detail-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--neutral-200);
+}
+
+.assignment-detail-item:last-child {
+    padding-bottom: 0;
+    border-bottom: 0;
+}
+
+.assignment-detail-item > div {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.assignment-detail-item > div > span:not(.role-tag):not(.status-badge) {
+    color: var(--neutral-600);
+}
+
+.assignment-count {
+    display: inline-flex;
+    min-width: 2rem;
+    justify-content: center;
+    padding: 0.25rem 0.6rem;
+    border-radius: var(--radius-full);
+    background: var(--primary-100);
+    color: var(--primary-800);
+    font-weight: 700;
+}
+
 table {
     width: 100%;
     border-collapse: collapse;
@@ -539,6 +595,37 @@ tbody tr:hover {
     .quick-actions-grid {
         grid-template-columns: 1fr;
     }
+
+    .assignment-detail-item {
+        align-items: flex-start;
+        flex-direction: column;
+    }
 }
 </style>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const countSelect = document.getElementById('class-count');
+    const rowsContainer = document.getElementById('class-assignment-rows');
+
+    function updateClassRows() {
+        const rows = rowsContainer.querySelectorAll('.class-assignment-row');
+        const count = Number(countSelect.value);
+
+        while (rowsContainer.children.length < count) {
+            const row = rowsContainer.children[0].cloneNode(true);
+            row.querySelectorAll('input').forEach(input => input.value = '');
+            rowsContainer.appendChild(row);
+        }
+        while (rowsContainer.children.length > count) {
+            rowsContainer.lastElementChild.remove();
+        }
+
+        rowsContainer.querySelectorAll('.class-assignment-row').forEach((row, index) => {
+            row.querySelector('label').textContent = `Class ${index + 1} grade`;
+        });
+    }
+
+    countSelect.addEventListener('change', updateClassRows);
+});
+</script>
 {% endblock %}
