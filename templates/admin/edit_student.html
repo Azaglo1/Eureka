@@ -74,32 +74,32 @@
         </div>
 
         <div class="form-group">
-            <label for="guardian_name">Guardian Name</label>
+            <label for="guardian_name">Guardian Name (optional)</label>
             <input type="text" id="guardian_name" name="guardian_name" value="{{ student.guardian_name or '' }}" placeholder="Enter guardian name">
         </div>
 
         <div class="form-group">
-            <label for="emergency_contact">Emergency Contact</label>
+            <label for="emergency_contact">Emergency Contact (optional)</label>
             <input type="text" id="emergency_contact" name="emergency_contact" value="{{ student.emergency_contact or '' }}" placeholder="Enter emergency contact">
         </div>
 
         <div class="form-group">
-            <label for="allergies">Allergies</label>
+            <label for="allergies">Allergies (optional)</label>
             <textarea id="allergies" name="allergies" rows="2" placeholder="Enter allergies if any">{{ student.allergies or '' }}</textarea>
         </div>
 
         <div class="form-group">
-            <label for="blood_group">Blood Group</label>
+            <label for="blood_group">Blood Group (optional)</label>
             <input type="text" id="blood_group" name="blood_group" value="{{ student.blood_group or '' }}" placeholder="Enter blood group">
         </div>
 
         <div class="form-group">
-            <label for="medical_notes">Medical Notes</label>
+            <label for="medical_notes">Medical Notes (optional)</label>
             <textarea id="medical_notes" name="medical_notes" rows="3" placeholder="Enter medical notes">{{ student.medical_notes or '' }}</textarea>
         </div>
 
         <div class="form-group">
-            <label for="parent_name">Parent Name</label>
+            <label for="parent_name">Parent Name (optional)</label>
             <input type="text" id="parent_name" name="parent_name" value="{{ student.parent_name or '' }}" placeholder="Enter parent name">
         </div>
 
@@ -110,7 +110,7 @@
         </div>
 
         <div class="form-group">
-            <label for="parent_email">Parent Email</label>
+            <label for="parent_email">Parent Email (optional)</label>
             <input type="email" id="parent_email" name="parent_email" value="{{ student.parent_email or '' }}" placeholder="Enter parent email address">
         </div>
         
