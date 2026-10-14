@@ -44,9 +44,50 @@
         </div>
     </section>
 
+    <!-- Teacher Primary Class Assignments -->
+    <section style="margin-bottom: 2rem;">
+        <h3 style="margin-bottom: 1rem;">Primary Class Assignments</h3>
+        {% if primary_class_assignments %}
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Grade</th>
+                        <th>Section</th>
+                        <th>Subject</th>
+                        <th>Responsibility</th>
+                        <th>Primary</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for assignment in primary_class_assignments %}
+                    <tr>
+                        <td>{{ assignment.grade or 'All' }}</td>
+                        <td>{{ assignment.section or 'All' }}</td>
+                        <td>{{ assignment.subject or 'N/A' }}</td>
+                        <td>{{ assignment.responsibility }}</td>
+                        <td>
+                            {% if assignment.is_primary %}
+                            <span class="status-badge present">Primary</span>
+                            {% else %}
+                            <span class="status-badge">Secondary</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p style="text-align: center; padding: 2rem; color: var(--neutral-400);">
+            No primary class assignments found for this teacher.
+        </p>
+        {% endif %}
+    </section>
+
     <!-- Teacher Class Assignments -->
     <section style="margin-bottom: 2rem;">
-        <h3 style="margin-bottom: 1rem;">Class Assignments</h3>
+        <h3 style="margin-bottom: 1rem;">All Class Assignments</h3>
         {% if teacher_assignments %}
         <div class="table-wrapper">
             <table>

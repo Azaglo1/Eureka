@@ -705,7 +705,8 @@ def build_grade_report_document(student, school_name, sender_name, grades_data, 
             "<tr>"
             f"<td>{html.escape(str(grade_row['subject'] or ''))}</td>"
             f"<td>{html.escape(str(grade_row['grade'] or ''))}</td>"
-            f"<td>{html.escape(str(grade_row['class_test'] or ''))}</td>"
+            f"<td>{html.escape(str(grade_row.get('class_test_1') if grade_row.get('class_test_1') is not None else grade_row.get('class_test') or ''))}</td>"
+            f"<td>{html.escape(str(grade_row.get('class_test_2') or ''))}</td>"
             f"<td>{html.escape(str(grade_row['midterm_exam'] or ''))}</td>"
             f"<td>{html.escape(str(grade_row['class_score'] or ''))}</td>"
             f"<td>{html.escape(str(grade_row['final_exam'] or ''))}</td>"
@@ -715,7 +716,7 @@ def build_grade_report_document(student, school_name, sender_name, grades_data, 
         )
 
     if not rows:
-        rows.append("<tr><td colspan=\"8\">No grade records found for this student.</td></tr>")
+        rows.append("<tr><td colspan=\"9\">No grade records found for this student.</td></tr>")
 
     remarks_items = []
     if attendance_present is not None and attendance_total is not None:
@@ -798,11 +799,12 @@ def build_grade_report_document(student, school_name, sender_name, grades_data, 
 
         <table>
             <thead>
-                <tr><th colspan="8">Academic Performance</th></tr>
+                <tr><th colspan="9">Academic Performance</th></tr>
                 <tr>
                     <th>Subject</th>
                     <th>Grade</th>
-                    <th>Class Test ({int(class_test_weight * 100)}%)</th>
+                    <th>Class Test 1</th>
+                    <th>Class Test 2</th>
                     <th>Midterm Exam ({int(midterm_exam_weight * 100)}%)</th>
                     <th>Class Score ({int(class_score_weight * 100)}%)</th>
                     <th>Final Exam ({int(final_exam_weight * 100)}%)</th>
@@ -1097,7 +1099,15 @@ def init_db():
     
     # Use helper function for database-agnostic column additions
     add_column_if_not_exists(db, "students", "parent_user_id", "INTEGER REFERENCES users(id)")
+    add_column_if_not_exists(db, "teacher_assignments", "is_primary", "INTEGER NOT NULL DEFAULT 0")
     add_column_if_not_exists(db, "schools", "passing_marks", "INTEGER DEFAULT 50")
+    add_column_if_not_exists(db, "grades", "class_test_1", "REAL")
+    add_column_if_not_exists(db, "grades", "class_test_2", "REAL")
+    try:
+        cur.execute("UPDATE grades SET class_test_1 = class_test WHERE class_test_1 IS NULL AND class_test IS NOT NULL")
+        db.commit()
+    except Exception:
+        db.rollback()
     
     try:
         cur.execute("SELECT academic_term FROM schools LIMIT 1")
@@ -1372,7 +1382,108 @@ def teacher_required(view):
     return wrapped_view
 
 
+def _teacher_assignment_permissions(school_id, teacher_id):
+    assignments = query_db(
+        """
+        SELECT grade, section, subject, responsibility, is_primary
+        FROM teacher_assignments
+        WHERE school_id = ? AND teacher_id = ? AND active = 1
+        """,
+        (school_id, teacher_id),
+    ) or []
+    class_teacher_assignments = [
+        assignment for assignment in assignments
+        if (assignment.get("responsibility") or "").strip().lower() == "class teacher"
+    ]
+    subject_assignments = [
+        assignment for assignment in assignments
+        if (assignment.get("subject") or "").strip()
+    ]
+    return class_teacher_assignments, subject_assignments
+
+
+def _primary_class_assignments(school_id, teacher_id):
+    assignments = query_db(
+        """
+        SELECT ta.*, u.name AS teacher_name
+        FROM teacher_assignments ta
+        JOIN users u ON ta.teacher_id = u.id
+        WHERE ta.teacher_id = ? AND ta.school_id = ? AND ta.active = 1
+        ORDER BY ta.grade, ta.section, ta.subject
+        """,
+        (teacher_id, school_id),
+    ) or []
+
+    class_teacher_assignments = [
+        assignment for assignment in assignments
+        if (assignment.get("responsibility") or "").strip().lower() == "class teacher"
+    ]
+    if not class_teacher_assignments:
+        return []
+
+    primary_class_assignments = [
+        assignment for assignment in class_teacher_assignments
+        if assignment.get("is_primary")
+    ]
+    if primary_class_assignments:
+        return primary_class_assignments
+    return class_teacher_assignments[:1]
+
+
+def _teacher_default_class(school_id, teacher_id):
+    primary_assignments = _primary_class_assignments(school_id, teacher_id)
+    if not primary_assignments:
+        return {"grade": "", "section": ""}
+    primary = primary_assignments[0]
+    return {
+        "grade": primary.get("grade") or "",
+        "section": primary.get("section") or "",
+    }
+
+
+def _assignment_matches_class(assignment, grade, section):
+    assignment_grade = (assignment.get("grade") or "").strip()
+    assignment_section = (assignment.get("section") or "").strip()
+    return (
+        (not assignment_grade or assignment_grade == (grade or "").strip()) and
+        (not assignment_section or assignment_section == (section or "").strip())
+    )
+
+
+def _teacher_can_edit_subject(teacher_id, school_id, student, subject):
+    class_teacher_assignments, subject_assignments = _teacher_assignment_permissions(school_id, teacher_id)
+    if any(_assignment_matches_class(assignment, student.get("grade"), student.get("section"))
+           for assignment in class_teacher_assignments):
+        return True
+    normalized_subject = (subject or "").strip().lower()
+    return any(
+        _assignment_matches_class(assignment, student.get("grade"), student.get("section")) and
+        (assignment.get("subject") or "").strip().lower() == normalized_subject
+        for assignment in subject_assignments
+    )
+
+
+def _class_teacher_name(school_id, grade, section):
+    row = query_db(
+        """
+        SELECT u.name
+        FROM teacher_assignments ta
+        JOIN users u ON u.id = ta.teacher_id
+        WHERE ta.school_id = ? AND ta.active = 1 AND ta.is_primary = 1
+          AND LOWER(TRIM(ta.responsibility)) = 'class teacher'
+          AND (ta.grade IS NULL OR ta.grade = '' OR ta.grade = ?)
+          AND (ta.section IS NULL OR ta.section = '' OR ta.section = ?)
+        ORDER BY u.name
+        LIMIT 1
+        """,
+        (school_id, grade or "", section or ""),
+        one=True,
+    )
+    return row["name"] if row else ""
+
+
 @app.route("/", methods=["GET", "POST"])
+@app.route("/login", methods=["GET", "POST"])
 def login():
     schools = query_db("SELECT id, name, school_code FROM schools ORDER BY name")
     if request.method == "POST":
@@ -1493,34 +1604,47 @@ def dashboard():
 
 
 @app.route("/teacher_dashboard")
+@app.route("/teacher-dashboard")
 @login_required
 @teacher_required
 def teacher_dashboard():
     school_id = session.get("school_id")
     teacher_id = session.get("user_id")
     
-    # Get teacher's class assignments (grade, section, subject combinations)
-    assignments = query_db(
-        """
-        SELECT ta.*, u.name AS teacher_name
-        FROM teacher_assignments ta
-        JOIN users u ON ta.teacher_id = u.id
-        WHERE ta.teacher_id = ? AND ta.active = 1
-        ORDER BY ta.grade, ta.section, ta.subject
-        """,
-        (teacher_id,),
-    )
+    # Get teacher's primary class assignments (grade, section, subject combinations)
+    assignments = _primary_class_assignments(school_id, teacher_id)
     
-    # Get students in classes taught by this teacher
-    my_students = query_db(
-        """
-        SELECT DISTINCT s.* FROM students s
-        JOIN teacher_assignments ta ON s.grade = ta.grade AND (s.section = ta.section OR ta.section IS NULL OR ta.section = '')
-        WHERE ta.teacher_id = ? AND s.school_id = ? AND s.active = 1
-        ORDER BY s.name
-        """,
-        (teacher_id, school_id),
-    )
+    # Get students in the teacher's primary class only; the selector can still be used to switch classes.
+    primary_class_assignments = [
+        assignment for assignment in assignments
+        if (assignment.get("responsibility") or "").strip().lower() == "class teacher"
+    ]
+    if primary_class_assignments:
+        conditions = []
+        params = [school_id]
+        for assignment in primary_class_assignments:
+            grade = (assignment.get("grade") or "").strip()
+            section = (assignment.get("section") or "").strip()
+            if grade and section:
+                conditions.append("(s.grade = ? AND s.section = ?)")
+                params.extend([grade, section])
+            elif grade:
+                conditions.append("(s.grade = ?)")
+                params.append(grade)
+            elif section:
+                conditions.append("(s.section = ?)")
+                params.append(section)
+            else:
+                conditions.append("(1 = 1)")
+        if conditions:
+            my_students = query_db(
+                f"SELECT DISTINCT s.* FROM students s WHERE s.school_id = ? AND s.active = 1 AND ({' OR '.join(conditions)}) ORDER BY s.name",
+                tuple(params),
+            )
+        else:
+            my_students = []
+    else:
+        my_students = []
     
     # Get assignments created by this teacher
     my_assignments = query_db(
@@ -1536,7 +1660,7 @@ def teacher_dashboard():
     upcoming_assignments = query_db(
         """
         SELECT a.* FROM assignments a
-        WHERE a.assigned_by = ? AND a.is_active = 1 AND a.due_date >= date('now')
+        WHERE a.assigned_by = ? AND a.is_active = 1 AND CAST(a.due_date AS DATE) >= CURRENT_DATE
         ORDER BY a.due_date ASC
         LIMIT 6
         """,
@@ -1571,7 +1695,7 @@ def teacher_dashboard():
     
     # Count overdue assignments
     overdue_count = query_db(
-        "SELECT COUNT(*) as count FROM assignments WHERE assigned_by = ? AND due_date < date('now') AND is_active = 1",
+        "SELECT COUNT(*) as count FROM assignments WHERE assigned_by = ? AND CAST(due_date AS DATE) < CURRENT_DATE AND is_active = 1",
         (teacher_id,),
         one=True,
     )
@@ -1601,6 +1725,11 @@ def attendance():
     selected_section = request.args.get("section", "").strip()
     selected_term = request.args.get("term", "").strip()
     selected_month = request.args.get("month", "").strip()
+
+    if user_role == ROLE_TEACHER and not selected_grade and not selected_section:
+        default_class = _teacher_default_class(school_id, session.get("user_id"))
+        selected_grade = default_class.get("grade") or selected_grade
+        selected_section = default_class.get("section") or selected_section
 
     if user_role == ROLE_PARENT:
         base_query = "SELECT * FROM students WHERE school_id = ? AND active = 1 AND parent_user_id = ?"
@@ -1794,7 +1923,7 @@ def attendance():
         selected_month = week_start.strftime("%Y-%m")
     month_label = datetime.strptime(selected_month, "%Y-%m").strftime("%B %Y")
 
-    class_teacher = session.get("user_name", "")
+    class_teacher = _class_teacher_name(school_id, grade, section)
 
     prev_week = (week_start - timedelta(days=7)).isoformat()
     next_week = (week_start + timedelta(days=7)).isoformat()
@@ -2281,18 +2410,38 @@ def promote_term3():
 def grades():
     school_id = session.get("school_id")
     user_role = session.get("role")
+    selected_grade = request.args.get("grade", "").strip()
+    selected_section = request.args.get("section", "").strip()
+    selected_term = request.args.get("term", "").strip()
+    teacher_is_class_teacher = user_role in (ROLE_ADMIN, ROLE_SUPERADMIN)
+    teacher_is_subject_limited = False
+    teacher_subject_assignments = []
+    teacher_class_teacher_assignments = []
+
+    if user_role == ROLE_TEACHER:
+        teacher_class_teacher_assignments, teacher_subject_assignments = _teacher_assignment_permissions(
+            school_id, session.get("user_id")
+        )
+        if selected_grade or selected_section:
+            teacher_is_class_teacher = any(
+                _assignment_matches_class(assignment, selected_grade, selected_section)
+                for assignment in teacher_class_teacher_assignments
+            )
+        else:
+            teacher_is_class_teacher = bool(teacher_class_teacher_assignments)
+        teacher_is_subject_limited = not teacher_is_class_teacher
     
+    if user_role == ROLE_TEACHER and not selected_grade and not selected_section:
+        default_class = _teacher_default_class(school_id, session.get("user_id"))
+        selected_grade = default_class.get("grade") or selected_grade
+        selected_section = default_class.get("section") or selected_section
+
     if user_role == ROLE_PARENT:
         students_query = "SELECT * FROM students WHERE school_id = ? AND active = 1 AND parent_user_id = ?"
         students_params = [school_id, session.get("user_id")]
     else:
         students_query = "SELECT * FROM students WHERE school_id = ? AND active = 1"
         students_params = [school_id]
-    
-    # Get filter parameters
-    selected_grade = request.args.get("grade", "").strip()
-    selected_section = request.args.get("section", "").strip()
-    selected_term = request.args.get("term", "").strip()
     
     # Get all sections and grade levels for filter dropdowns
     sections = query_db(
@@ -2345,6 +2494,17 @@ def grades():
     
     students_query += " ORDER BY grade, section, name"
     students = query_db(students_query, tuple(students_params))
+
+    if user_role == ROLE_TEACHER:
+        assignments = teacher_class_teacher_assignments + teacher_subject_assignments
+        students = [
+            student for student in students
+            if any(_assignment_matches_class(assignment, student.get("grade"), student.get("section"))
+                   for assignment in assignments)
+        ]
+
+        grade_level_list = sorted({student.get("grade") for student in students if student.get("grade")})
+        section_list = sorted({student.get("section") for student in students if student.get("section")})
     
     # Get subjects from school_subjects table (configured subjects only)
     school_subjects_for_options = []
@@ -2361,6 +2521,18 @@ def grades():
     for row in school_subjects_for_options:
         if row["name"] and row["name"] not in subject_options:
             subject_options.append(row["name"])
+
+    if teacher_is_subject_limited:
+        teacher_subjects = {
+            (assignment.get("subject") or "").strip()
+            for assignment in teacher_subject_assignments
+            if (assignment.get("subject") or "").strip()
+            and (
+                (not selected_grade and not selected_section)
+                or _assignment_matches_class(assignment, selected_grade, selected_section)
+            )
+        }
+        subject_options = [subject for subject in subject_options if subject in teacher_subjects]
 
     # Build class-specific subject map (grade -> list of subjects)
     class_subjects_by_grade = {}
@@ -2429,13 +2601,31 @@ def grades():
     term_options = ["Term 1", "Term 2", "Term 3"]
     
     # Get current grades for each student by subject (filtered by term if selected)
-    grades_query = "SELECT student_id, subject, grade, class_test, midterm_exam, class_score, final_exam, total_score, remark, term FROM grades WHERE school_id = ?"
+    grades_query = "SELECT student_id, subject, grade, class_test, class_test_1, class_test_2, midterm_exam, class_score, final_exam, total_score, remark, term FROM grades WHERE school_id = ?"
     grades_params = [school_id]
     if selected_term:
         grades_query += " AND term = ?"
         grades_params.append(selected_term)
     
     student_grades = query_db(grades_query, tuple(grades_params))
+
+    students_by_id = {student["id"]: student for student in students}
+    visible_subjects_by_student = {}
+    if user_role == ROLE_TEACHER:
+        for student in students:
+            student_is_class_teacher = any(
+                _assignment_matches_class(assignment, student.get("grade"), student.get("section"))
+                for assignment in teacher_class_teacher_assignments
+            )
+            if student_is_class_teacher:
+                visible_subjects_by_student[student["id"]] = None
+            else:
+                visible_subjects_by_student[student["id"]] = {
+                    (assignment.get("subject") or "").strip()
+                    for assignment in teacher_subject_assignments
+                    if (assignment.get("subject") or "").strip()
+                    and _assignment_matches_class(assignment, student.get("grade"), student.get("section"))
+                }
 
     try:
         attendance_rows = query_db(
@@ -2463,6 +2653,12 @@ def grades():
     # Organize grades by student
     grades_by_student = {}
     for g in student_grades:
+        if user_role == ROLE_TEACHER:
+            if g["student_id"] not in students_by_id:
+                continue
+            visible_subjects = visible_subjects_by_student.get(g["student_id"], set())
+            if visible_subjects is not None and g["subject"] not in visible_subjects:
+                continue
         if g["student_id"] not in grades_by_student:
             grades_by_student[g["student_id"]] = {}
         grades_by_student[g["student_id"]][g["subject"]] = g
@@ -2607,13 +2803,23 @@ def grades():
     top_students = students_with_grades[:5]
 
     recent_query = (
-        "SELECT g.*, s.name AS student_name, u.name AS recorder_name FROM grades g "
+        "SELECT g.*, s.name AS student_name, s.grade AS student_grade, s.section AS student_section, u.name AS recorder_name FROM grades g "
         "JOIN students s ON g.student_id = s.id "
         "JOIN users u ON g.recorded_by = u.id "
         "WHERE g.school_id = ? "
         "ORDER BY g.created_at DESC LIMIT 15"
     )
     recent_grades = query_db(recent_query, (school_id,))
+    if user_role == ROLE_TEACHER:
+        recent_grades = [
+            grade for grade in recent_grades
+            if _teacher_can_edit_subject(
+                session.get("user_id"),
+                school_id,
+                {"grade": grade.get("student_grade"), "section": grade.get("student_section")},
+                grade.get("subject"),
+            )
+        ]
 
     return render_template(
         "grades.html",
@@ -2652,6 +2858,240 @@ def grades():
         class_score_weight=class_score_weight,
         final_exam_weight=final_exam_weight,
         class_subjects_by_grade=class_subjects_by_grade,
+        teacher_is_class_teacher=teacher_is_class_teacher,
+        teacher_is_subject_limited=teacher_is_subject_limited,
+    )
+
+
+@app.route("/grades/assessment-entry", methods=["GET", "POST"])
+@login_required
+@teacher_required
+def assessment_entry():
+    school_id = session.get("school_id")
+    user_role = session.get("role")
+    assessment_options = [
+        ("class_score", "Class Score"),
+        ("midterm_exam", "Mid-semester Exam"),
+        ("final_exam", "Examination"),
+        ("class_test_1", "Class Test 1"),
+        ("class_test_2", "Class Test 2"),
+    ]
+    valid_assessments = {value for value, _ in assessment_options}
+    assessment = request.values.get("assessment", "class_score").strip()
+    if assessment not in valid_assessments:
+        assessment = "class_score"
+
+    selected_grade = request.values.get("grade", "").strip()
+    selected_section = request.values.get("section", "").strip()
+    selected_subject = request.values.get("subject", "").strip()
+    selected_term = request.values.get("term", "").strip()
+
+    if user_role == ROLE_TEACHER and not selected_grade and not selected_section:
+        default_class = _teacher_default_class(school_id, session.get("user_id"))
+        selected_grade = default_class.get("grade") or selected_grade
+        selected_section = default_class.get("section") or selected_section
+
+    all_classes = query_db(
+        "SELECT DISTINCT grade, section FROM students WHERE school_id = ? AND active = 1 ORDER BY grade, section",
+        (school_id,),
+    ) or []
+    class_teacher_assignments = []
+    subject_assignments = []
+    if user_role == ROLE_TEACHER:
+        class_teacher_assignments, subject_assignments = _teacher_assignment_permissions(
+            school_id, session.get("user_id")
+        )
+        valid_assignments = class_teacher_assignments + subject_assignments
+        all_classes = [
+            row for row in all_classes
+            if any(_assignment_matches_class(assignment, row.get("grade"), row.get("section"))
+                   for assignment in valid_assignments)
+        ]
+
+    class_options = [
+        {
+            "grade": row.get("grade") or "",
+            "section": row.get("section") or "",
+            "label": f"{row.get('grade') or ''} {row.get('section') or ''}".strip(),
+        }
+        for row in all_classes
+    ]
+    if selected_grade and not any(
+        option["grade"] == selected_grade and option["section"] == selected_section
+        for option in class_options
+    ):
+        selected_grade = ""
+        selected_section = ""
+
+    selected_class_is_class_teacher = user_role != ROLE_TEACHER or any(
+        _assignment_matches_class(assignment, selected_grade, selected_section)
+        for assignment in class_teacher_assignments
+    )
+    school_subjects = query_db(
+        "SELECT name FROM school_subjects WHERE school_id = ? ORDER BY name",
+        (school_id,),
+    ) or []
+    subject_options = [row["name"] for row in school_subjects if row.get("name")]
+    if user_role == ROLE_TEACHER and not selected_class_is_class_teacher:
+        assigned_subjects = {
+            (assignment.get("subject") or "").strip()
+            for assignment in subject_assignments
+            if (assignment.get("subject") or "").strip()
+            and (
+                not selected_grade
+                or _assignment_matches_class(assignment, selected_grade, selected_section)
+            )
+        }
+        subject_options = [subject for subject in subject_options if subject in assigned_subjects]
+    if selected_subject not in subject_options:
+        selected_subject = ""
+
+    if not selected_term:
+        school_term = query_db(
+            "SELECT academic_term FROM schools WHERE id = ?",
+            (school_id,), one=True,
+        ) or {}
+        selected_term = school_term.get("academic_term") or "Term 1"
+
+    students = []
+    grade_data_by_student = {}
+    if selected_grade and selected_subject:
+        student_query = "SELECT * FROM students WHERE school_id = ? AND active = 1 AND grade = ?"
+        student_params = [school_id, selected_grade]
+        if selected_section:
+            student_query += " AND section = ?"
+            student_params.append(selected_section)
+        else:
+            student_query += " AND (section IS NULL OR section = '')"
+        student_query += " ORDER BY name"
+        students = query_db(student_query, tuple(student_params)) or []
+
+        if user_role == ROLE_TEACHER:
+            students = [
+                student for student in students
+                if _teacher_can_edit_subject(
+                    session.get("user_id"), school_id, student, selected_subject
+                )
+            ]
+
+        grade_rows = query_db(
+            """SELECT g.student_id, g.class_test, g.class_test_1, g.class_test_2,
+                      g.midterm_exam, g.class_score, g.final_exam, g.total_score
+               FROM grades g JOIN students s ON s.id = g.student_id
+               WHERE g.school_id = ? AND s.school_id = ? AND s.grade = ?
+                 AND g.subject = ? AND g.term = ?""" +
+            (" AND (s.section IS NULL OR s.section = '')" if not selected_section else " AND s.section = ?"),
+            tuple([school_id, school_id, selected_grade, selected_subject, selected_term] +
+                  ([selected_section] if selected_section else [])),
+        ) or []
+        grade_data_by_student = {row["student_id"]: row for row in grade_rows}
+
+    if request.method == "POST":
+        if not selected_grade or not selected_subject:
+            flash("Select a class, section, subject, and term before saving scores.", "warning")
+        else:
+            school_weights = query_db(
+                "SELECT class_test_weight, midterm_exam_weight, class_score_weight, final_exam_weight FROM schools WHERE id = ?",
+                (school_id,), one=True,
+            ) or {}
+            weights = {
+                "class_test_weight": school_weights.get("class_test_weight") if school_weights.get("class_test_weight") is not None else 0.20,
+                "midterm_exam_weight": school_weights.get("midterm_exam_weight") if school_weights.get("midterm_exam_weight") is not None else 0.20,
+                "class_score_weight": school_weights.get("class_score_weight") if school_weights.get("class_score_weight") is not None else 0.10,
+                "final_exam_weight": school_weights.get("final_exam_weight") if school_weights.get("final_exam_weight") is not None else 0.50,
+            }
+            saved_count = 0
+            invalid_score = False
+            student_ids = {str(student["id"]) for student in students}
+            for student in students:
+                raw_score = request.form.get(f"score_{student['id']}", "").strip()
+                if not raw_score:
+                    continue
+                try:
+                    score = float(raw_score)
+                except ValueError:
+                    invalid_score = True
+                    continue
+                if not 0 <= score <= 100:
+                    invalid_score = True
+                    continue
+
+                existing = grade_data_by_student.get(student["id"], {})
+                components = {
+                    "class_test_1": existing.get("class_test_1"),
+                    "class_test_2": existing.get("class_test_2"),
+                    "midterm_exam": existing.get("midterm_exam"),
+                    "class_score": existing.get("class_score"),
+                    "final_exam": existing.get("final_exam"),
+                }
+                components[assessment] = score
+                class_test_average = calculate_class_test_average(
+                    existing.get("class_test"),
+                    components.get("class_test_1"),
+                    components.get("class_test_2"),
+                )
+                total_score, grade_value, remark = calculate_grade_result(
+                    class_test_average,
+                    components["midterm_exam"],
+                    components["class_score"],
+                    components["final_exam"],
+                    **weights,
+                )
+
+                if user_role == ROLE_TEACHER and not _teacher_can_edit_subject(
+                    session.get("user_id"), school_id, student, selected_subject
+                ):
+                    continue
+                if existing:
+                    query_db(
+                        """UPDATE grades SET class_test = ?, class_test_1 = ?, class_test_2 = ?,
+                                  midterm_exam = ?, class_score = ?, final_exam = ?, total_score = ?,
+                                  grade = ?, remark = ?, recorded_by = ?, created_at = CURRENT_TIMESTAMP
+                           WHERE student_id = ? AND school_id = ? AND subject = ? AND term = ?""",
+                        (class_test_average, components["class_test_1"], components["class_test_2"],
+                         components["midterm_exam"], components["class_score"], components["final_exam"],
+                         total_score, grade_value, remark, session.get("user_id"), student["id"],
+                         school_id, selected_subject, selected_term),
+                        commit=True,
+                    )
+                else:
+                    query_db(
+                        """INSERT INTO grades
+                           (student_id, school_id, subject, term, class_test, class_test_1, class_test_2,
+                            midterm_exam, class_score, final_exam, total_score, grade, remark, recorded_by)
+                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                        (student["id"], school_id, selected_subject, selected_term, class_test_average,
+                         components["class_test_1"], components["class_test_2"], components["midterm_exam"],
+                         components["class_score"], components["final_exam"], total_score, grade_value,
+                         remark, session.get("user_id")),
+                        commit=True,
+                    )
+                saved_count += 1
+            if invalid_score:
+                flash("Scores must be numbers from 0 to 100. Valid scores were saved.", "warning")
+            if saved_count:
+                flash(f"{assessment.replace('_', ' ').title()} scores saved for {saved_count} students.", "success")
+            elif not invalid_score:
+                flash("Enter at least one score before saving.", "warning")
+
+        return redirect(url_for(
+            "assessment_entry", assessment=assessment, grade=selected_grade,
+            section=selected_section, subject=selected_subject, term=selected_term,
+        ))
+
+    return render_template(
+        "assessment_entry.html",
+        assessment_options=assessment_options,
+        assessment=assessment,
+        class_options=class_options,
+        subject_options=subject_options,
+        students=students,
+        grade_data_by_student=grade_data_by_student,
+        selected_grade=selected_grade,
+        selected_section=selected_section,
+        selected_subject=selected_subject,
+        selected_term=selected_term,
+        term_options=["Term 1", "Term 2", "Term 3"],
     )
 
 
@@ -2970,6 +3410,16 @@ def download_grades_csv():
     grades_query += " ORDER BY g.created_at DESC"
 
     grades_data = query_db(grades_query, tuple(grades_params))
+    if session.get("role") == ROLE_TEACHER:
+        grades_data = [
+            grade for grade in grades_data
+            if _teacher_can_edit_subject(
+                session.get("user_id"),
+                school_id,
+                grade,
+                grade.get("subject"),
+            )
+        ]
 
     import csv
     import io
@@ -3003,6 +3453,16 @@ def download_grades_csv():
         }
     )
     return response
+
+
+def calculate_class_test_average(class_test=None, class_test_1=None, class_test_2=None):
+    """Return the effective class-test average, supporting both legacy and split class-test fields."""
+    split_values = [value for value in (class_test_1, class_test_2) if value is not None]
+    if split_values:
+        return sum(split_values) / len(split_values)
+    if class_test is not None:
+        return class_test
+    return None
 
 
 def calculate_grade_result(class_test=None, midterm_exam=None, class_score=None, final_exam=None,
@@ -3046,11 +3506,14 @@ def upload_scores():
     
     term = request.form.get("term")
     subject = request.form.get("subject")
+    assessment_type = request.form.get("assessment_type", "").strip().lower()
     score_file = request.files.get("score_file")
     
     if not term or not subject:
         flash("Please select both term and subject.", "error")
         return redirect(url_for("grades"))
+
+    subject = subject.strip()
     
     if not score_file or score_file.filename == "":
         flash("Please select a CSV file to upload.", "error")
@@ -3066,12 +3529,12 @@ def upload_scores():
         import io
         
         # Read the file content
-        stream = io.StringIO(score_file.stream.read().decode("UTF8"), newline=None)
+        stream = io.StringIO(score_file.stream.read().decode("utf-8-sig"), newline=None)
         csv_input = csv.DictReader(stream)
+        csv_input.fieldnames = [name.strip().lower() for name in csv_input.fieldnames or []]
         
-        # Expected columns: student_id or student_number, class_test, midterm_exam, final_exam
-        # We'll try to be flexible with column names
-        fieldnames = [name.strip().lower() for name in csv_input.fieldnames] if csv_input.fieldnames else []
+        # Expected columns: student_id or student_number, plus assessment scores.
+        fieldnames = csv_input.fieldnames or []
         
         # Map possible column names
         student_id_col = None
@@ -3088,11 +3551,11 @@ def upload_scores():
                 student_number_col = field
             elif 'class' in field and 'test' in field:
                 class_test_col = field
-            elif 'midterm' in field and 'exam' in field:
+            elif any(marker in field for marker in ('midterm', 'midsem', 'mid_sem')):
                 midterm_exam_col = field
             elif ('class' in field and 'score' in field) or (field == 'cs'):
                 class_score_col = field
-            elif 'final' in field and 'exam' in field:
+            elif ('final' in field and 'exam' in field) or field in ('exam', 'examination', 'fe'):
                 final_exam_col = field
         
         # If we didn't find specific columns, try alternatives
@@ -3123,9 +3586,31 @@ def upload_scores():
                     break
         if not final_exam_col:
             for field in fieldnames:
-                if field == 'final_exam' or field == 'fe':
+                if field in ('final_exam', 'examination', 'exam', 'fe'):
                     final_exam_col = field
                     break
+
+        if assessment_type:
+            assessment_columns = {
+                "class_test": class_test_col,
+                "midterm_exam": midterm_exam_col,
+                "final_exam": final_exam_col,
+            }
+            generic_score_col = next(
+                (field for field in fieldnames if field in ("score", "marks", "mark", "score_obtained")),
+                None,
+            )
+            if assessment_type not in assessment_columns:
+                flash("Choose Class Test, Mid-semester Exam, or Examination.", "error")
+                return redirect(url_for("grades"))
+            selected_score_col = assessment_columns[assessment_type] or generic_score_col
+            if not selected_score_col:
+                flash("The CSV needs a score/marks column or the selected assessment's column.", "error")
+                return redirect(url_for("grades"))
+            class_test_col = selected_score_col if assessment_type == "class_test" else None
+            midterm_exam_col = selected_score_col if assessment_type == "midterm_exam" else None
+            class_score_col = None
+            final_exam_col = selected_score_col if assessment_type == "final_exam" else None
         
         if not student_id_col and not student_number_col:
             flash("CSV must contain either 'student_id' or 'student_number' column.", "error")
@@ -3137,6 +3622,16 @@ def upload_scores():
         
         # Process each row
         updated_count = 0
+        school_weights = query_db(
+            "SELECT class_test_weight, midterm_exam_weight, class_score_weight, final_exam_weight FROM schools WHERE id = ?",
+            (school_id,), one=True,
+        ) or {}
+        score_weights = {
+            "class_test_weight": school_weights.get("class_test_weight") if school_weights.get("class_test_weight") is not None else 0.20,
+            "midterm_exam_weight": school_weights.get("midterm_exam_weight") if school_weights.get("midterm_exam_weight") is not None else 0.20,
+            "class_score_weight": school_weights.get("class_score_weight") if school_weights.get("class_score_weight") is not None else 0.10,
+            "final_exam_weight": school_weights.get("final_exam_weight") if school_weights.get("final_exam_weight") is not None else 0.50,
+        }
         for row in csv_input:
             # Get student identifier
             student_identifier = None
@@ -3164,6 +3659,11 @@ def upload_scores():
             
             if not student:
                 continue  # Skip if student not found
+
+            if session.get("role") == ROLE_TEACHER and not _teacher_can_edit_subject(
+                session.get("user_id"), school_id, student, subject
+            ):
+                continue
             
             student_id = student["id"]
             
@@ -3196,32 +3696,49 @@ def upload_scores():
                     final_exam = float(row.get(final_exam_col))
                 except ValueError:
                     pass
-            
-            total_score, grade, remark = calculate_grade_result(
-                class_test, midterm_exam, class_score, final_exam
-            )
+
+            if assessment_type and all(value is None for value in (class_test, midterm_exam, final_exam)):
+                continue
             
             # Insert or update grade record
             # Check if record already exists for this student, subject, and term
-            existing = query_db("""SELECT id FROM grades 
+            existing = query_db("""SELECT id, class_test, midterm_exam, class_score, final_exam FROM grades
                                   WHERE student_id = ? AND school_id = ? AND subject = ? 
                                   AND term = ?""", 
                                (student_id, school_id, subject, term), one=True)
+
+            score_values = {
+                "class_test": class_test,
+                "midterm_exam": midterm_exam,
+                "class_score": class_score,
+                "final_exam": final_exam,
+            }
+            if existing:
+                for component in score_values:
+                    if score_values[component] is None:
+                        score_values[component] = existing.get(component)
+            total_score, grade, remark = calculate_grade_result(
+                score_values["class_test"],
+                score_values["midterm_exam"],
+                score_values["class_score"],
+                score_values["final_exam"],
+                **score_weights,
+            )
             
             if existing:
                 # Update existing record
                 query_db("""UPDATE grades SET 
-                           class_test = COALESCE(?, class_test),
-                           midterm_exam = COALESCE(?, midterm_exam),
-                           class_score = COALESCE(?, class_score),
-                           final_exam = COALESCE(?, final_exam),
-                           total_score = COALESCE(?, total_score),
-                           grade = COALESCE(?, grade),
-                           remark = COALESCE(?, remark),
+                           class_test = ?,
+                           midterm_exam = ?,
+                           class_score = ?,
+                           final_exam = ?,
+                           total_score = ?,
+                           grade = ?,
+                           remark = ?,
                            recorded_by = ?,
                            created_at = CURRENT_TIMESTAMP
                            WHERE id = ?""", 
-                       (class_test, midterm_exam, class_score, final_exam, total_score, grade, remark,
+                       (score_values["class_test"], score_values["midterm_exam"], score_values["class_score"], score_values["final_exam"], total_score, grade, remark,
                         session.get("user_id"), existing["id"]), 
                        commit=True)
             else:
@@ -3230,8 +3747,8 @@ def upload_scores():
                            (student_id, school_id, subject, term, class_test, midterm_exam, 
                             class_score, final_exam, total_score, grade, remark, recorded_by) 
                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""", 
-                       (student_id, school_id, subject, term, class_test, midterm_exam, 
-                        class_score, final_exam, total_score, grade, remark, session.get("user_id")), 
+                       (student_id, school_id, subject, term, score_values["class_test"], score_values["midterm_exam"], 
+                        score_values["class_score"], score_values["final_exam"], total_score, grade, remark, session.get("user_id")), 
                        commit=True)
             
             updated_count += 1
@@ -3264,9 +3781,44 @@ def save_grades():
     except ValueError:
         flash("Invalid student ID.", "error")
         return redirect(url_for("grades"))
+
+    student = query_db(
+        "SELECT id, grade, section FROM students WHERE id = ? AND school_id = ? AND active = 1",
+        (student_id, school_id),
+        one=True,
+    )
+    if not student:
+        flash("Student is not available for grade entry.", "error")
+        return redirect(url_for("grades"))
+
+    teacher_is_class_teacher = session.get("role") in (ROLE_ADMIN, ROLE_SUPERADMIN)
+    allowed_subjects = None
+    if session.get("role") == ROLE_TEACHER:
+        class_teacher_assignments, subject_assignments = _teacher_assignment_permissions(
+            school_id, session.get("user_id")
+        )
+        teacher_is_class_teacher = any(
+            _assignment_matches_class(assignment, student.get("grade"), student.get("section"))
+            for assignment in class_teacher_assignments
+        )
+        if not teacher_is_class_teacher:
+            allowed_subjects = {
+                (assignment.get("subject") or "").strip()
+                for assignment in subject_assignments
+                if _assignment_matches_class(assignment, student.get("grade"), student.get("section"))
+            }
+            if not allowed_subjects:
+                flash("You are not assigned to this student's class.", "error")
+                return redirect(url_for("grades"))
     
     # Get form data
     subjects = request.form.getlist("subject")
+    if allowed_subjects is not None:
+        unauthorized_subjects = [subject for subject in subjects if subject not in allowed_subjects]
+        if unauthorized_subjects:
+            flash("You can only enter marks for your assigned subject.", "error")
+            return redirect(url_for("grades", student_id=student_id, term=term))
+        subjects = [subject for subject in subjects if subject in allowed_subjects]
     
     # Attendance is always sourced from the attendance register, never typed into Grades.
     try:
@@ -3364,46 +3916,36 @@ def save_grades():
     
     # Process each subject
     for subject in subjects:
-        # Get field values for this subject
+        # Get field values for this subject. Support both legacy class-test values and the split Class Test 1 / 2 fields.
         class_test_val = request.form.get(f"class_test_{subject}")
+        class_test_1_val = request.form.get(f"class_test_1_{subject}")
+        class_test_2_val = request.form.get(f"class_test_2_{subject}")
         midterm_exam_val = request.form.get(f"midterm_exam_{subject}")
         class_score_val = request.form.get(f"class_score_{subject}")
         final_exam_val = request.form.get(f"final_exam_{subject}")
         grade_val = request.form.get(f"grade_{subject}")
         remark_val = request.form.get(f"remark_{subject}")
-        
-        # Convert scores to float or None
-        class_test = None
-        if class_test_val:
+
+        def parse_score(value):
+            if value is None or value == '':
+                return None
             try:
-                class_test = float(class_test_val)
+                return float(value)
             except ValueError:
-                pass
-              
-        midterm_exam = None
-        if midterm_exam_val:
-            try:
-                midterm_exam = float(midterm_exam_val)
-            except ValueError:
-                pass
-                
-        class_score = None
-        if class_score_val:
-            try:
-                class_score = float(class_score_val)
-            except ValueError:
-                pass
-                
-        final_exam = None
-        if final_exam_val:
-            try:
-                final_exam = float(final_exam_val)
-            except ValueError:
-                pass
+                return None
+
+        class_test = parse_score(class_test_val)
+        class_test_1 = parse_score(class_test_1_val)
+        class_test_2 = parse_score(class_test_2_val)
+        class_test_average = calculate_class_test_average(class_test, class_test_1, class_test_2)
+
+        midterm_exam = parse_score(midterm_exam_val)
+        class_score = parse_score(class_score_val)
+        final_exam = parse_score(final_exam_val)
 
         # Calculate total score from weighted inputs
         total_score = (
-            ((class_test or 0) * class_test_weight) +
+            ((class_test_average or 0) * class_test_weight) +
             ((midterm_exam or 0) * midterm_exam_weight) +
             ((class_score or 0) * class_score_weight) +
             ((final_exam or 0) * final_exam_weight)
@@ -3461,6 +4003,8 @@ def save_grades():
         if existing:
             query_db("""UPDATE grades SET 
                         class_test = ?,
+                        class_test_1 = ?,
+                        class_test_2 = ?,
                         midterm_exam = ?,
                         class_score = ?,
                         final_exam = ?,
@@ -3470,16 +4014,16 @@ def save_grades():
                         recorded_by = ?,
                         created_at = CURRENT_TIMESTAMP
                         WHERE id = ?""", 
-                     (class_test, midterm_exam, class_score, final_exam, total_score, grade, remark,
+                     (class_test_average, class_test_1, class_test_2, midterm_exam, class_score, final_exam, total_score, grade, remark,
                       session.get("user_id"), existing["id"]), 
                      commit=True)
         else:
             query_db("""INSERT INTO grades 
-                        (student_id, school_id, subject, term, class_test, midterm_exam, 
-                         class_score, final_exam, total_score, grade, remark, recorded_by) 
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""", 
-                     (student_id, school_id, subject, term, class_test, midterm_exam, 
-                      class_score, final_exam, total_score, grade, remark, session.get("user_id")), 
+                        (student_id, school_id, subject, term, class_test, class_test_1, class_test_2,
+                         midterm_exam, class_score, final_exam, total_score, grade, remark, recorded_by) 
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""", 
+                     (student_id, school_id, subject, term, class_test_average, class_test_1, class_test_2,
+                      midterm_exam, class_score, final_exam, total_score, grade, remark, session.get("user_id")), 
                      commit=True)
     
     flash("Grades saved successfully.", "success")
@@ -3514,13 +4058,13 @@ def student_grade_report(student_id):
 
     if term:
         grades_data = query_db(
-            "SELECT subject, grade, class_test, midterm_exam, class_score, final_exam, total_score, remark, term FROM grades WHERE student_id = ? AND school_id = ? AND term = ? ORDER BY subject",
+            "SELECT subject, grade, class_test, class_test_1, class_test_2, midterm_exam, class_score, final_exam, total_score, remark, term FROM grades WHERE student_id = ? AND school_id = ? AND term = ? ORDER BY subject",
             (student_id, school_id, term),
         )
         report = get_student_report_row(student_id, school_id, term)
     else:
         grades_data = query_db(
-            "SELECT subject, grade, class_test, midterm_exam, class_score, final_exam, total_score, remark, term FROM grades WHERE student_id = ? AND school_id = ? ORDER BY subject",
+            "SELECT subject, grade, class_test, class_test_1, class_test_2, midterm_exam, class_score, final_exam, total_score, remark, term FROM grades WHERE student_id = ? AND school_id = ? ORDER BY subject",
             (student_id, school_id),
         )
         report = get_student_report_row(student_id, school_id)
@@ -3603,7 +4147,7 @@ def student_grade_report(student_id):
 def _bulk_grade_report(student, school_id, school_name, sender_name, term, custom_message=""):
     """Build the per-student grade report and delivery payload for bulk sends."""
     grades_query = (
-        "SELECT subject, grade, class_test, midterm_exam, class_score, final_exam, "
+        "SELECT subject, grade, class_test, class_test_1, class_test_2, midterm_exam, class_score, final_exam, "
         "total_score, remark, term FROM grades WHERE student_id = ? AND school_id = ?"
     )
     grade_args = [student["id"], school_id]
@@ -3837,12 +4381,12 @@ def send_grades():
     # Get grade data
     if term:
         grades_data = query_db(
-            "SELECT subject, grade, class_test, midterm_exam, class_score, final_exam, total_score, remark, term FROM grades WHERE student_id = ? AND school_id = ? AND term = ? ORDER BY subject",
+            "SELECT subject, grade, class_test, class_test_1, class_test_2, midterm_exam, class_score, final_exam, total_score, remark, term FROM grades WHERE student_id = ? AND school_id = ? AND term = ? ORDER BY subject",
             (student_id, school_id, term)
         )
     else:
         grades_data = query_db(
-            "SELECT subject, grade, class_test, midterm_exam, class_score, final_exam, total_score, remark, term FROM grades WHERE student_id = ? AND school_id = ? ORDER BY subject",
+            "SELECT subject, grade, class_test, class_test_1, class_test_2, midterm_exam, class_score, final_exam, total_score, remark, term FROM grades WHERE student_id = ? AND school_id = ? ORDER BY subject",
             (student_id, school_id)
         )
 
@@ -5088,6 +5632,7 @@ def view_teacher(user_id):
         """,
         (user_id,),
     )
+    primary_class_assignments = _primary_class_assignments(teacher["school_id"], user_id)
     
     # Get assignments created by this teacher
     created_assignments = query_db(
@@ -5105,6 +5650,7 @@ def view_teacher(user_id):
         "view_teacher.html",
         teacher=teacher,
         teacher_assignments=teacher_assignments,
+        primary_class_assignments=primary_class_assignments,
         created_assignments=created_assignments,
     )
 
@@ -6966,14 +7512,14 @@ def teacher_assignments():
             "SELECT id, name FROM school_subjects WHERE school_id = ? ORDER BY name",
             (user_school_id,),
         )
-    grades = query_db(
-        "SELECT id, name FROM school_grade_levels WHERE school_id = ? ORDER BY sort_order, name",
-        (user_school_id,),
-    )
-    sections = query_db(
-        "SELECT id, name FROM school_sections WHERE school_id = ? ORDER BY name",
-        (user_school_id,),
-    )
+        grades = query_db(
+            "SELECT id, name FROM school_grade_levels WHERE school_id = ? ORDER BY sort_order, name",
+            (user_school_id,),
+        )
+        sections = query_db(
+            "SELECT id, name FROM school_sections WHERE school_id = ? ORDER BY name",
+            (user_school_id,),
+        )
 
     assignments_by_teacher = {}
     for assignment in assignments or []:
@@ -6984,9 +7530,22 @@ def teacher_assignments():
                 "teacher_name": assignment["teacher_name"],
                 "teacher_email": assignment["teacher_email"],
                 "assignments": [],
+                "primary_class_teacher": None,
             }
         assignments_by_teacher[teacher_id]["assignments"].append(assignment)
-    
+
+    for teacher in assignments_by_teacher.values():
+        class_teacher_assignments = [
+            assignment for assignment in teacher["assignments"]
+            if (assignment.get("responsibility") or "").strip().lower() == "class teacher"
+        ]
+        if class_teacher_assignments:
+            primary_assignment = next(
+                (assignment for assignment in class_teacher_assignments if assignment.get("is_primary")),
+                class_teacher_assignments[0],
+            )
+            teacher["primary_class_teacher"] = primary_assignment
+
     return render_template(
         "teacher_assignments.html",
         assignments=assignments,

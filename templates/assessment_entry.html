@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% block title %}Enter Assessment Scores - EUREKA{% endblock %}
+{% block page_title %}Assessment Entry{% endblock %}
+{% block content %}
+<div class="assessment-page">
+    <header class="assessment-heading">
+        <div>
+            <h1>Enter Assessment Scores</h1>
+            <p>Choose the class, subject, and term, then enter marks for the roster.</p>
+        </div>
+        <a class="btn btn-secondary" href="{{ url_for('grades') }}">Back to Grades</a>
+    </header>
+
+    <nav class="assessment-tabs" aria-label="Assessment type">
+        {% for value, label in assessment_options %}
+        <a class="assessment-tab {% if assessment == value %}active{% endif %}"
+           href="{{ url_for('assessment_entry', assessment=value, grade=selected_grade, section=selected_section, subject=selected_subject, term=selected_term) }}">{{ label }}</a>
+        {% endfor %}
+    </nav>
+
+    <section class="assessment-filters">
+        <form method="get" action="{{ url_for('assessment_entry') }}" class="filter-form">
+            <input type="hidden" name="assessment" value="{{ assessment }}">
+            <label>Class
+                <select name="grade" required>
+                    <option value="">Choose class...</option>
+                    {% for option in class_options|map(attribute='grade')|unique %}
+                    <option value="{{ option }}" {% if selected_grade == option %}selected{% endif %}>{{ option }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label>Section
+                <select name="section">
+                    <option value="">Choose section...</option>
+                    {% for option in class_options if option.grade == selected_grade %}
+                    <option value="{{ option.section }}" {% if selected_section == option.section %}selected{% endif %}>{{ option.section or 'No section' }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label>Subject
+                <select name="subject" required>
+                    <option value="">Choose subject...</option>
+                    {% for subject in subject_options %}
+                    <option value="{{ subject }}" {% if selected_subject == subject %}selected{% endif %}>{{ subject }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label>Term
+                <select name="term" required>
+                    {% for term in term_options %}
+                    <option value="{{ term }}" {% if selected_term == term %}selected{% endif %}>{{ term }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <button class="primary-btn" type="submit">Open Class</button>
+        </form>
+    </section>
+
+    {% if selected_grade and selected_subject %}
+    <section class="roster-section">
+        <div class="roster-heading">
+            <div>
+                <h2>{{ selected_grade }}{% if selected_section %} - {{ selected_section }}{% endif %}</h2>
+                <p>{{ selected_subject }} · {{ selected_term }} · {{ students|length }} students</p>
+            </div>
+            <span class="assessment-name">{{ dict(assessment_options)[assessment] }}</span>
+        </div>
+        <form method="post" action="{{ url_for('assessment_entry') }}">
+            <input type="hidden" name="assessment" value="{{ assessment }}">
+            <input type="hidden" name="grade" value="{{ selected_grade }}">
+            <input type="hidden" name="section" value="{{ selected_section }}">
+            <input type="hidden" name="subject" value="{{ selected_subject }}">
+            <input type="hidden" name="term" value="{{ selected_term }}">
+            <div class="roster-table-wrap">
+                <table class="roster-table">
+                    <thead>
+                        <tr><th>#</th><th>Student</th><th>Student Number</th><th>{{ dict(assessment_options)[assessment] }} / 100</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for student in students %}
+                        {% set saved = grade_data_by_student.get(student.id, {}) %}
+                        {% set saved_score = saved.get(assessment) %}
+                        {% if assessment == 'class_test_1' and saved_score is none %}{% set saved_score = saved.get('class_test') %}{% endif %}
+                        <tr>
+                            <td>{{ loop.index }}</td>
+                            <td>{{ student.name }}</td>
+                            <td>{{ student.student_number or '' }}</td>
+                            <td><input type="number" name="score_{{ student.id }}" min="0" max="100" step="0.1" value="{{ saved_score if saved_score is not none else '' }}" aria-label="{{ dict(assessment_options)[assessment] }} score for {{ student.name }}"></td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="4" class="empty-roster">No students are assigned to this class.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% if students %}<button type="submit" class="primary-btn save-roster">Save Scores</button>{% endif %}
+        </form>
+    </section>
+    {% else %}
+    <p class="empty-roster prompt">Select a class, subject, and term to load the student roster.</p>
+    {% endif %}
+</div>
+
+<style>
+.assessment-page { max-width: 1200px; margin: 0 auto; color: var(--neutral-900); }
+.assessment-heading, .roster-heading { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
+.assessment-heading { margin-bottom: 1.25rem; }
+.assessment-heading h1, .roster-heading h2 { margin: 0; }
+.assessment-heading p, .roster-heading p { margin: .35rem 0 0; color: var(--neutral-600); }
+.assessment-tabs { display: flex; flex-wrap: wrap; gap: .5rem; border-bottom: 1px solid var(--neutral-300); padding-bottom: .75rem; margin-bottom: 1.25rem; }
+.assessment-tab { display: inline-flex; align-items: center; padding: .65rem .9rem; color: var(--neutral-700); text-decoration: none; border-bottom: 3px solid transparent; font-weight: 600; }
+.assessment-tab.active { color: var(--primary-700); border-color: var(--primary-600); }
+.assessment-filters { padding: 1rem 0 1.25rem; border-bottom: 1px solid var(--neutral-200); }
+.filter-form { display: grid; grid-template-columns: repeat(4, minmax(140px, 1fr)) auto; align-items: end; gap: .85rem; }
+.filter-form label { display: grid; gap: .4rem; font-weight: 600; font-size: .9rem; }
+.filter-form select, .roster-table input { min-height: 42px; border: 1px solid var(--neutral-300); border-radius: 4px; padding: .55rem .7rem; background: white; }
+.roster-section { margin-top: 1.4rem; }
+.roster-heading { margin-bottom: .9rem; }
+.assessment-name { font-weight: 700; color: var(--primary-700); }
+.roster-table-wrap { overflow-x: auto; border: 1px solid var(--neutral-200); }
+.roster-table { width: 100%; border-collapse: collapse; }
+.roster-table th, .roster-table td { text-align: left; padding: .75rem; border-bottom: 1px solid var(--neutral-200); }
+.roster-table th { background: var(--neutral-100); font-size: .85rem; }
+.roster-table input { width: 130px; }
+.save-roster { margin-top: 1rem; }
+.empty-roster { padding: 1.5rem; color: var(--neutral-600); text-align: center !important; }
+.prompt { margin-top: 1.25rem; }
+@media (max-width: 760px) { .filter-form { grid-template-columns: repeat(2, minmax(0, 1fr)); } .assessment-heading, .roster-heading { align-items: flex-start; } }
+@media (max-width: 480px) { .filter-form { grid-template-columns: 1fr; } .assessment-heading { flex-direction: column; } }
+</style>
+{% endblock %}

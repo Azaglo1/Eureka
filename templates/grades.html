@@ -82,6 +82,20 @@
         </form>
     </div>
 
+    <div class="card assessment-upload-card">
+        <div class="card-header">
+            <div>
+                <h2 class="card-title">Enter Assessment Scores</h2>
+                <p class="card-subtitle">Choose an assessment to open the selected class roster.</p>
+            </div>
+        </div>
+        <nav class="assessment-tabs" aria-label="Assessment type">
+            {% for value, label in [('class_score', 'Class Score'), ('midterm_exam', 'Mid-semester'), ('final_exam', 'Examination'), ('class_test_1', 'Class Test 1'), ('class_test_2', 'Class Test 2')] %}
+            <a class="primary-btn btn-sm" href="{{ url_for('assessment_entry', assessment=value, grade=selected_grade, section=selected_section, term=selected_term) }}">{{ label }}</a>
+            {% endfor %}
+        </nav>
+    </div>
+
     <div class="card bulk-send-card">
         <div class="card-header">
             <div>
@@ -847,6 +861,7 @@
 const studentsData = {{ students|tojson }};
 const subjectsData = {{ subjects|tojson }};
 const classSubjectsByGrade = {{ class_subjects_by_grade|tojson }};
+const teacherIsSubjectLimited = {{ teacher_is_subject_limited|tojson }};
 const selectedGrade = "{{ selected_grade }}";
 const gradeWeights = {
     class_test: {{ class_test_weight|tojson }},
@@ -905,8 +920,10 @@ function viewStudentGrades(studentId) {
      let subjectsToUse = [];
      const subjectsArray = Array.isArray(subjectsData) ? subjectsData : Object.keys(subjectsData || {});
      
-     // Priority 1: Use class-specific subjects if available
-     if (selectedGradeValue && classSubjectsByGrade && classSubjectsByGrade[selectedGradeValue]) {
+     // Subject teachers receive only the subjects already filtered by the server.
+     if (teacherIsSubjectLimited) {
+         subjectsToUse = subjectsArray;
+     } else if (selectedGradeValue && classSubjectsByGrade && classSubjectsByGrade[selectedGradeValue]) {
          const classSubjects = classSubjectsByGrade[selectedGradeValue];
          if (classSubjects && classSubjects.length > 0) {
              subjectsToUse = classSubjects;

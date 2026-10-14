@@ -157,6 +157,13 @@
                                         <div>
                                             <strong>{{ teacher.teacher_name }}</strong><br>
                                             <small>{{ teacher.teacher_email or 'No email' }}</small>
+                                            {% if teacher.primary_class_teacher %}
+                                            <br>
+                                            <small><strong>Class teacher:</strong> {{ teacher.primary_class_teacher.grade or 'All grades' }} {{ teacher.primary_class_teacher.section or '' }}{% if teacher.primary_class_teacher.subject %} · {{ teacher.primary_class_teacher.subject }}{% endif %}</small>
+                                            {% else %}
+                                            <br>
+                                            <small>No primary class-teacher assignment</small>
+                                            {% endif %}
                                         </div>
                                     </div>
                                 </summary>
